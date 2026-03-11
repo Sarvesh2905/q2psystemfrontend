@@ -1,35 +1,92 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import Login from "./pages/Login";
+import CreateAccount from "./pages/CreateAccount";
+import Dashboard from "./pages/Dashboard";
+import Masters from "./pages/Masters";
+import UsersDept from "./pages/masters/UsersDept";
+import SalesContact from "./pages/masters/SalesContact";
+import Customer from "./pages/masters/Customer";
+import Buyer from "./pages/masters/Buyer";
+import { isLoggedIn } from "./utils/auth";
 
-function App() {
-  const [count, setCount] = useState(0)
-
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+function ProtectedRoute({ children }) {
+  return isLoggedIn() ? children : <Navigate to="/login" replace />;
+}
+function PublicRoute({ children }) {
+  return !isLoggedIn() ? children : <Navigate to="/dashboard" replace />;
 }
 
-export default App
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route
+          path="/login"
+          element={
+            <PublicRoute>
+              <Login />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/create-account"
+          element={
+            <PublicRoute>
+              <CreateAccount />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/masters"
+          element={
+            <ProtectedRoute>
+              <Masters />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/masters/users-dept"
+          element={
+            <ProtectedRoute>
+              <UsersDept />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/masters/sales-contact"
+          element={
+            <ProtectedRoute>
+              <SalesContact />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/masters/customer"
+          element={
+            <ProtectedRoute>
+              <Customer />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/masters/buyer"
+          element={
+            <ProtectedRoute>
+              <Buyer />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
