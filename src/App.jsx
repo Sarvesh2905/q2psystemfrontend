@@ -7,6 +7,19 @@ import UsersDept from "./pages/masters/UsersDept";
 import SalesContact from "./pages/masters/SalesContact";
 import Customer from "./pages/masters/Customer";
 import Buyer from "./pages/masters/Buyer";
+import Country from "./pages/masters/Country";
+import Product from "./pages/masters/Product";
+import Price from "./pages/masters/Price";
+import GEReference from "./pages/masters/GEReference";
+import Discount from "./pages/masters/Discount";
+import SpclDiscount from "./pages/masters/SpclDiscount";
+import EndIndustry from "./pages/masters/EndIndustry";
+import CountryType from "./pages/masters/CountryType";
+import StatusMaster from "./pages/masters/StatusMaster";
+import Reason from "./pages/masters/Reason";
+import TimelineTarget from "./pages/masters/TimelineTarget";
+import CostPrice from "./pages/masters/CostPrice";
+import Privileged from "./pages/masters/Privileged";
 import { isLoggedIn } from "./utils/auth";
 
 function ProtectedRoute({ children }) {
@@ -82,6 +95,110 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Buyer />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/masters/country"
+          element={
+            <ProtectedRoute>
+              <Country />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/masters/product"
+          element={
+            <ProtectedRoute>
+              <Product />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/masters/price"
+          element={
+            <ProtectedRoute>
+              <Price />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/masters/ge-reference"
+          element={
+            <ProtectedRoute>
+              <GEReference />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/masters/discount"
+          element={
+            <ProtectedRoute>
+              <Discount />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/masters/spcl-discount"
+          element={
+            <ProtectedRoute>
+              <SpclDiscount />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/masters/end-industry"
+          element={
+            <ProtectedRoute>
+              <EndIndustry />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/masters/country-type"
+          element={
+            <ProtectedRoute>
+              <CountryType />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/masters/status-master"
+          element={
+            <ProtectedRoute>
+              <StatusMaster />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/masters/reason"
+          element={
+            <ProtectedRoute>
+              <Reason />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/masters/timeline-target"
+          element={
+            <ProtectedRoute>
+              <TimelineTarget />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/masters/cost-price"
+          element={
+            <ProtectedRoute>
+              <CostPrice />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/masters/privileged"
+          element={
+            <ProtectedRoute>
+              <Privileged />
             </ProtectedRoute>
           }
         />

@@ -20,7 +20,7 @@ const subMasters = [
   {
     name: "Special Discount",
     icon: "bi-star-fill",
-    path: "/masters/special-discount",
+    path: "/masters/spcl-discount",
   },
   {
     name: "End Industry",
@@ -28,7 +28,7 @@ const subMasters = [
     path: "/masters/end-industry",
   },
   { name: "Country Type", icon: "bi-flag-fill", path: "/masters/country-type" },
-  { name: "Status", icon: "bi-toggles", path: "/masters/status" },
+  { name: "Status", icon: "bi-toggles", path: "/masters/status-master" },
   { name: "Reason", icon: "bi-chat-square-text-fill", path: "/masters/reason" },
   {
     name: "Timeline Target",
@@ -43,7 +43,7 @@ const subMasters = [
   {
     name: "Privileges",
     icon: "bi-shield-lock-fill",
-    path: "/masters/privileges",
+    path: "/masters/privileged",
   },
 ];
 

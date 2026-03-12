@@ -1,0 +1,560 @@
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import DashboardNavbar from "../../components/DashboardNavbar";
+import { getAuth, isLoggedIn } from "../../utils/auth";
+
+const API = "http://localhost:5001/api/timeline-target";
+const PAGE_SIZE = 50;
+
+const NUMERIC_FIELDS = [
+  { key: "Enquiry", label: "Enquiry" },
+  { key: "Technicaloffer", label: "Technical Offer" },
+  { key: "Pricedoffer", label: "Priced Offer" },
+  { key: "Pricebookorder", label: "Price Book Order" },
+  { key: "Regret", label: "Regret" },
+  { key: "Cancelled", label: "Cancelled" },
+];
+
+const emptyForm = {
+  Product: "",
+  Enquiry: "",
+  Technicaloffer: "",
+  Pricedoffer: "",
+  Pricebookorder: "",
+  Regret: "",
+  Cancelled: "",
+};
+
+export default function TimelineTarget() {
+  const navigate = useNavigate();
+  const { token, user } = getAuth();
+  const role = user?.role;
+  const canEdit = role === "Admin" || role === "Manager";
+
+  const [allData, setAllData] = useState([]);
+  const [filtered, setFiltered] = useState([]);
+  const [page, setPage] = useState(1);
+  const [searchVal, setSearchVal] = useState("");
+  const [panel, setPanel] = useState(null); // 'add' | 'edit' | null
+  const [form, setForm] = useState(emptyForm);
+  const [editSno, setEditSno] = useState(null);
+  const [editProductLocked, setEditProductLocked] = useState("");
+  const [availProducts, setAvailProducts] = useState([]);
+  const [dupError, setDupError] = useState("");
+  const [formErrors, setFormErrors] = useState({});
+  const [alert, setAlert] = useState({ msg: "", type: "" });
+  const [loading, setLoading] = useState(false);
+
+  const headers = { Authorization: `Bearer ${token}` };
+
+  useEffect(() => {
+    if (!isLoggedIn()) navigate("/login", { replace: true });
+  }, []);
+
+  // ── Fetch table data ────────────────────────────────────────────────────────
+  const fetchData = useCallback(async () => {
+    try {
+      const { data } = await axios.get(API, { headers });
+      setAllData(data);
+      setFiltered(data);
+      setPage(1);
+    } catch {
+      showAlert("Failed to load data.", "danger");
+    }
+  }, [token]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // ── Fetch available products (not yet in timelinetarget) ───────────────────
+  const fetchAvailProducts = useCallback(async () => {
+    try {
+      const { data } = await axios.get(`${API}/available-products`, {
+        headers,
+      });
+      setAvailProducts(data);
+    } catch {}
+  }, [token]);
+
+  const showAlert = (msg, type) => {
+    setAlert({ msg, type });
+    setTimeout(() => setAlert({ msg: "", type: "" }), 4500);
+  };
+
+  // ── Search ──────────────────────────────────────────────────────────────────
+  const handleSearch = () => {
+    const q = searchVal.trim().toLowerCase();
+    setFiltered(
+      allData.filter(
+        (row) => !q || (row.Product || "").toLowerCase().includes(q),
+      ),
+    );
+    setPage(1);
+  };
+
+  const handleClear = () => {
+    setSearchVal("");
+    setFiltered(allData);
+    setPage(1);
+  };
+
+  // ── Pagination ──────────────────────────────────────────────────────────────
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // ── Panel helpers ────────────────────────────────────────────────────────────
+  const openAdd = async () => {
+    await fetchAvailProducts();
+    setForm(emptyForm);
+    setDupError("");
+    setFormErrors({});
+    setAlert({ msg: "", type: "" });
+    setPanel("add");
+  };
+
+  const handleRowDblClick = (row) => {
+    setEditSno(row.Sno);
+    setEditProductLocked(row.Product);
+    setForm({
+      Product: row.Product,
+      Enquiry: String(row.Enquiry),
+      Technicaloffer: String(row.Technicaloffer),
+      Pricedoffer: String(row.Pricedoffer),
+      Pricebookorder: String(row.Pricebookorder),
+      Regret: String(row.Regret),
+      Cancelled: String(row.Cancelled),
+    });
+    setDupError("");
+    setFormErrors({});
+    setAlert({ msg: "", type: "" });
+    setPanel("edit");
+  };
+
+  const closePanel = () => {
+    setPanel(null);
+    setForm(emptyForm);
+    setDupError("");
+    setFormErrors({});
+    setEditSno(null);
+    setEditProductLocked("");
+  };
+
+  // ── Validate numeric fields ─────────────────────────────────────────────────
+  const validateNumerics = (f) => {
+    const errs = {};
+    NUMERIC_FIELDS.forEach(({ key, label }) => {
+      if (f[key] === "" || f[key] === null || f[key] === undefined)
+        errs[key] = `${label} is required.`;
+      else if (isNaN(Number(f[key])) || Number(f[key]) < 0)
+        errs[key] = `${label} must be a non-negative number.`;
+    });
+    return errs;
+  };
+
+  // ── ADD ─────────────────────────────────────────────────────────────────────
+  const handleAdd = async (e) => {
+    e.preventDefault();
+    if (dupError) return;
+    const errs = validateNumerics(form);
+    if (Object.keys(errs).length) {
+      setFormErrors(errs);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data } = await axios.post(API, form, { headers });
+      showAlert(data.message, "success");
+      closePanel();
+      fetchData();
+    } catch (err) {
+      showAlert(
+        err.response?.data?.message || "Error adding record.",
+        "danger",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── EDIT ────────────────────────────────────────────────────────────────────
+  const handleEdit = async (e) => {
+    e.preventDefault();
+    const errs = validateNumerics(form);
+    if (Object.keys(errs).length) {
+      setFormErrors(errs);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data } = await axios.put(`${API}/${editSno}`, form, { headers });
+      showAlert(data.message, "success");
+      closePanel();
+      fetchData();
+    } catch (err) {
+      showAlert(
+        err.response?.data?.message || "Error updating record.",
+        "danger",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Numeric input change handler ────────────────────────────────────────────
+  const handleNumericChange = (key, val) => {
+    setForm((f) => ({ ...f, [key]: val }));
+    setFormErrors((prev) => ({ ...prev, [key]: "" }));
+  };
+
+  const pageNumbers = Array.from(
+    { length: totalPages },
+    (_, i) => i + 1,
+  ).filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2);
+
+  return (
+    <>
+      <DashboardNavbar />
+      <div className="container-fluid px-3 py-3">
+        {/* Breadcrumb */}
+        <div className="d-flex align-items-center gap-2 mb-3">
+          <button
+            className="btn btn-sm back-btn"
+            onClick={() => navigate("/masters")}
+          >
+            <i className="bi bi-arrow-left-circle-fill me-1"></i>Back
+          </button>
+          <span className="text-muted" style={{ fontSize: "0.88rem" }}>
+            Masters &rsaquo; <strong>Timeline Target</strong>
+          </span>
+        </div>
+
+        <h5 className="master-page-title mb-3">
+          <i className="bi bi-clock-history me-2"></i>Timeline Target Master
+        </h5>
+
+        {alert.msg && (
+          <div className={`alert alert-${alert.type} py-2`} role="alert">
+            {alert.msg}
+          </div>
+        )}
+
+        {/* ── Toolbar ────────────────────────────────────────────────── */}
+        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-end gap-2">
+          <div>
+            <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
+              Product
+            </label>
+            <input
+              type="text"
+              className="form-control form-control-sm"
+              style={{ width: "220px" }}
+              placeholder="Search by Product..."
+              value={searchVal}
+              onChange={(e) => setSearchVal(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            />
+          </div>
+          <div className="d-flex gap-2 align-items-end">
+            <button
+              className="btn btn-sm btn-primary-custom"
+              onClick={handleSearch}
+            >
+              <i className="bi bi-search me-1"></i>Search
+            </button>
+            <button
+              className="btn btn-sm btn-outline-secondary"
+              onClick={handleClear}
+            >
+              <i className="bi bi-x-circle me-1"></i>Clear
+            </button>
+          </div>
+          <div className="ms-auto d-flex align-items-end gap-2">
+            <span className="text-muted" style={{ fontSize: "0.82rem" }}>
+              Records: <strong>{filtered.length}</strong>
+            </span>
+            {canEdit && (
+              <button
+                className="btn btn-sm btn-primary-custom"
+                onClick={openAdd}
+              >
+                <i className="bi bi-plus-circle-fill me-1"></i>Add
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* ── Table + Panel ──────────────────────────────────────────── */}
+        <div className="d-flex gap-3" style={{ minHeight: "60vh" }}>
+          {/* Table */}
+          <div
+            className="master-table-wrapper"
+            style={{
+              flex: panel ? "0 0 57%" : "1",
+              transition: "flex 0.3s",
+              overflowX: "auto",
+            }}
+          >
+            <table className="table table-bordered table-hover master-table mb-0">
+              <thead>
+                <tr>
+                  <th style={{ width: "5%" }}>S.No</th>
+                  <th style={{ width: panel ? "22%" : "18%" }}>Product</th>
+                  <th className="text-center">Enquiry</th>
+                  <th className="text-center">Tech. Offer</th>
+                  <th className="text-center">Priced Offer</th>
+                  <th className="text-center">PB Order</th>
+                  <th className="text-center">Regret</th>
+                  <th className="text-center">Cancelled</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginated.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="text-center text-muted py-4">
+                      No records found.
+                    </td>
+                  </tr>
+                ) : (
+                  paginated.map((row, idx) => (
+                    <tr
+                      key={row.Sno}
+                      onDoubleClick={() => canEdit && handleRowDblClick(row)}
+                      style={{ cursor: canEdit ? "pointer" : "default" }}
+                      className={
+                        panel === "edit" && editSno === row.Sno
+                          ? "table-active"
+                          : ""
+                      }
+                    >
+                      <td>{(page - 1) * PAGE_SIZE + idx + 1}</td>
+                      <td>
+                        <span
+                          className="badge"
+                          style={{
+                            backgroundColor: "#800000",
+                            color: "#fff",
+                            fontSize: "0.76rem",
+                          }}
+                        >
+                          {row.Product}
+                        </span>
+                      </td>
+                      <td className="text-center">{row.Enquiry}</td>
+                      <td className="text-center">{row.Technicaloffer}</td>
+                      <td className="text-center">{row.Pricedoffer}</td>
+                      <td className="text-center">{row.Pricebookorder}</td>
+                      <td className="text-center">{row.Regret}</td>
+                      <td className="text-center">{row.Cancelled}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="d-flex justify-content-between align-items-center mt-2 px-1">
+                <small className="text-muted">
+                  Page {page} of {totalPages}
+                </small>
+                <div className="d-flex gap-1">
+                  <button
+                    className="btn btn-sm btn-outline-secondary"
+                    disabled={page === 1}
+                    onClick={() => setPage((p) => p - 1)}
+                  >
+                    <i className="bi bi-chevron-left"></i>
+                  </button>
+                  {pageNumbers.map((p, i, arr) => (
+                    <>
+                      {i > 0 && arr[i - 1] !== p - 1 && (
+                        <span key={`e${p}`} className="btn btn-sm disabled">
+                          …
+                        </span>
+                      )}
+                      <button
+                        key={p}
+                        className={`btn btn-sm ${
+                          page === p
+                            ? "btn-primary-custom"
+                            : "btn-outline-secondary"
+                        }`}
+                        onClick={() => setPage(p)}
+                      >
+                        {p}
+                      </button>
+                    </>
+                  ))}
+                  <button
+                    className="btn btn-sm btn-outline-secondary"
+                    disabled={page === totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    <i className="bi bi-chevron-right"></i>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Side Panel ──────────────────────────────────────────── */}
+          {panel && (
+            <div className="master-side-panel" style={{ flex: "0 0 41%" }}>
+              <div className="panel-header d-flex justify-content-between align-items-center mb-3">
+                <h6
+                  className="mb-0"
+                  style={{ color: "#800000", fontWeight: 700 }}
+                >
+                  <i
+                    className={`bi ${
+                      panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"
+                    } me-2`}
+                  ></i>
+                  {panel === "add"
+                    ? "Create Timeline Target"
+                    : "Edit Timeline Target"}
+                </h6>
+                <button
+                  className="btn btn-sm btn-outline-secondary"
+                  onClick={closePanel}
+                >
+                  <i className="bi bi-x-lg"></i>
+                </button>
+              </div>
+
+              {dupError && (
+                <div
+                  className="alert alert-danger py-1 mb-3"
+                  style={{ fontSize: "0.8rem" }}
+                >
+                  <i className="bi bi-exclamation-triangle-fill me-1"></i>
+                  {dupError}
+                </div>
+              )}
+
+              <form
+                onSubmit={panel === "add" ? handleAdd : handleEdit}
+                noValidate
+              >
+                {/* Product field */}
+                <div className="mb-3">
+                  <label className="form-label panel-label">
+                    Product <span className="text-danger">*</span>
+                  </label>
+                  {panel === "add" ? (
+                    <>
+                      <select
+                        className={`form-select form-select-sm ${dupError ? "is-invalid" : ""}`}
+                        value={form.Product}
+                        onChange={(e) => {
+                          setForm((f) => ({ ...f, Product: e.target.value }));
+                          setDupError("");
+                        }}
+                        required
+                        autoFocus
+                      >
+                        <option value="">-- Select Product --</option>
+                        {availProducts.map((p) => (
+                          <option key={p} value={p}>
+                            {p}
+                          </option>
+                        ))}
+                      </select>
+                      <small
+                        className="text-muted"
+                        style={{ fontSize: "0.74rem" }}
+                      >
+                        Only products without existing targets are shown.
+                      </small>
+                    </>
+                  ) : (
+                    <input
+                      type="text"
+                      className="form-control form-control-sm"
+                      value={editProductLocked}
+                      readOnly
+                      style={{
+                        backgroundColor: "#f5f5f5",
+                        cursor: "not-allowed",
+                        fontWeight: 600,
+                      }}
+                    />
+                  )}
+                </div>
+
+                {/* All 6 numeric fields */}
+                <div className="row g-2 mb-4">
+                  {NUMERIC_FIELDS.map(({ key, label }) => (
+                    <div className="col-6" key={key}>
+                      <label
+                        className="form-label panel-label"
+                        style={{ fontSize: "0.78rem" }}
+                      >
+                        {label} <span className="text-danger">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        className={`form-control form-control-sm ${
+                          formErrors[key] ? "is-invalid" : ""
+                        }`}
+                        value={form[key]}
+                        onChange={(e) =>
+                          handleNumericChange(key, e.target.value)
+                        }
+                        required
+                        placeholder="0"
+                        autoFocus={panel === "edit" && key === "Enquiry"}
+                      />
+                      {formErrors[key] && (
+                        <div
+                          className="invalid-feedback"
+                          style={{ fontSize: "0.72rem" }}
+                        >
+                          {formErrors[key]}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="d-flex gap-2">
+                  <button
+                    type="submit"
+                    className="btn btn-sm btn-primary-custom flex-fill"
+                    disabled={
+                      loading ||
+                      (panel === "add" && (!!dupError || !form.Product))
+                    }
+                  >
+                    {loading ? (
+                      <span className="spinner-border spinner-border-sm me-1"></span>
+                    ) : (
+                      <i
+                        className={`bi ${
+                          panel === "add" ? "bi-check-circle" : "bi-save"
+                        } me-1`}
+                      ></i>
+                    )}
+                    {panel === "add" ? "Save" : "Update"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary flex-fill"
+                    onClick={closePanel}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
