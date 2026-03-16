@@ -4,10 +4,10 @@ import axios from "axios";
 import DashboardNavbar from "../../components/DashboardNavbar";
 import { getAuth, isLoggedIn } from "../../utils/auth";
 
-const API = "http://localhost:5001/api/country-type";
+const API = "http://localhost:5001/api/country-type"; // backend route
 const PAGE_SIZE = 50;
 
-export default function CountryType() {
+export default function CustomerTypeMaster() {
   const navigate = useNavigate();
   const { token, user } = getAuth();
   const role = user?.role;
@@ -31,12 +31,15 @@ export default function CountryType() {
 
   const headers = { Authorization: `Bearer ${token}` };
 
-  // ── Auth guard ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!isLoggedIn()) navigate("/login", { replace: true });
   }, []);
 
-  // ── Fetch data ────────────────────────────────────────────────────────────
+  const showAlert = (msg, type) => {
+    setAlert({ msg, type });
+    setTimeout(() => setAlert({ msg: "", type: "" }), 4500);
+  };
+
   const fetchData = useCallback(async () => {
     try {
       const { data } = await axios.get(API, { headers });
@@ -52,18 +55,13 @@ export default function CountryType() {
     fetchData();
   }, [fetchData]);
 
-  // ── Alert helper ──────────────────────────────────────────────────────────
-  const showAlert = (msg, type) => {
-    setAlert({ msg, type });
-    setTimeout(() => setAlert({ msg: "", type: "" }), 4500);
-  };
-
-  // ── Search ────────────────────────────────────────────────────────────────
   const handleSearch = () => {
     const q = searchVal.trim().toLowerCase();
     setFiltered(
       allData.filter(
-        (row) => !q || (row.CountryType || "").toLowerCase().includes(q),
+        (row) => !q || (row.CustomerType || row.CountryType || "")
+          .toLowerCase()
+          .includes(q),
       ),
     );
     setPage(1);
@@ -75,11 +73,13 @@ export default function CountryType() {
     setPage(1);
   };
 
-  // ── Pagination ────────────────────────────────────────────────────────────
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  // ── Panel controls ────────────────────────────────────────────────────────
+  const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1).filter(
+    (p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2,
+  );
+
   const openAdd = () => {
     setAddValue("");
     setDupError("");
@@ -93,7 +93,6 @@ export default function CountryType() {
     setDupError("");
   };
 
-  // ── Duplicate check (fires on input change) ───────────────────────────────
   const checkDuplicate = async (val) => {
     if (!val.trim()) return;
     try {
@@ -103,10 +102,11 @@ export default function CountryType() {
       );
       if (data.exists) setDupError(data.message);
       else setDupError("");
-    } catch {}
+    } catch {
+      // ignore
+    }
   };
 
-  // ── ADD ───────────────────────────────────────────────────────────────────
   const handleAdd = async (e) => {
     e.preventDefault();
     if (dupError) return;
@@ -114,7 +114,8 @@ export default function CountryType() {
     try {
       const { data } = await axios.post(
         API,
-        { CountryType: addValue },
+        // If backend still expects CountryType, use { CountryType: addValue }
+        { CustomerType: addValue },
         { headers },
       );
       showAlert(data.message, "success");
@@ -122,7 +123,7 @@ export default function CountryType() {
       fetchData();
     } catch (err) {
       showAlert(
-        err.response?.data?.message || "Error adding Country Type.",
+        err.response?.data?.message || "Error adding Customer Type.",
         "danger",
       );
     } finally {
@@ -130,7 +131,6 @@ export default function CountryType() {
     }
   };
 
-  // ── TOGGLE ────────────────────────────────────────────────────────────────
   const handleToggle = async () => {
     const { sno, currentStatus } = confirmModal;
     const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
@@ -147,12 +147,6 @@ export default function CountryType() {
     }
   };
 
-  // ── Pagination page numbers ───────────────────────────────────────────────
-  const pageNumbers = Array.from(
-    { length: totalPages },
-    (_, i) => i + 1,
-  ).filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2);
-
   return (
     <>
       <DashboardNavbar />
@@ -166,32 +160,31 @@ export default function CountryType() {
             <i className="bi bi-arrow-left-circle-fill me-1"></i>Back
           </button>
           <span className="text-muted" style={{ fontSize: "0.88rem" }}>
-            Masters &rsaquo; <strong>Country Type</strong>
+            Masters &rsaquo; <strong>Customer Type</strong>
           </span>
         </div>
 
         <h5 className="master-page-title mb-3">
-          <i className="bi bi-globe me-2"></i>Country Type Master
+          <i className="bi bi-tags-fill me-2"></i>Customer Type Master
         </h5>
 
-        {/* Alert */}
         {alert.msg && (
           <div className={`alert alert-${alert.type} py-2`} role="alert">
             {alert.msg}
           </div>
         )}
 
-        {/* ── Toolbar ──────────────────────────────────────────────────── */}
+        {/* Toolbar */}
         <div className="master-toolbar mb-3 d-flex flex-wrap align-items-end gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
-              Country Type
+              Customer Type
             </label>
             <input
               type="text"
               className="form-control form-control-sm"
               style={{ width: "220px" }}
-              placeholder="Search by Country Type..."
+              placeholder="Search by Customer Type..."
               value={searchVal}
               onChange={(e) => setSearchVal(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -226,7 +219,7 @@ export default function CountryType() {
           </div>
         </div>
 
-        {/* ── Table + Panel ──────────────────────────────────────────────── */}
+        {/* Table + Panel */}
         <div className="d-flex gap-3" style={{ minHeight: "60vh" }}>
           {/* Table */}
           <div
@@ -241,7 +234,7 @@ export default function CountryType() {
               <thead>
                 <tr>
                   <th style={{ width: "10%" }}>S.No</th>
-                  <th>Country Type</th>
+                  <th>Customer Type</th>
                   <th style={{ width: "14%" }}>Status</th>
                   {canEdit && <th style={{ width: "12%" }}>Action</th>}
                 </tr>
@@ -257,61 +250,63 @@ export default function CountryType() {
                     </td>
                   </tr>
                 ) : (
-                  paginated.map((row, idx) => (
-                    <tr key={row.Sno}>
-                      <td>{(page - 1) * PAGE_SIZE + idx + 1}</td>
-                      <td>
-                        <span
-                          className="badge"
-                          style={{
-                            backgroundColor: "#800000",
-                            color: "#fff",
-                            fontSize: "0.78rem",
-                            letterSpacing: "0.03em",
-                          }}
-                        >
-                          {row.CountryType}
-                        </span>
-                      </td>
-                      <td>
-                        <span
-                          className={`badge ${
-                            row.status === "Active"
-                              ? "bg-success"
-                              : "bg-secondary"
-                          }`}
-                        >
-                          {row.status}
-                        </span>
-                      </td>
-                      {canEdit && (
-                        <td className="text-center">
-                          <button
-                            className={`btn btn-xs status-btn ${
+                  paginated.map((row, idx) => {
+                    const name = row.CustomerType || row.CountryType;
+                    return (
+                      <tr key={row.Sno}>
+                        <td>{(page - 1) * PAGE_SIZE + idx + 1}</td>
+                        <td>
+                          <span
+                            className="badge"
+                            style={{
+                              backgroundColor: "#800000",
+                              color: "#fff",
+                              fontSize: "0.78rem",
+                              letterSpacing: "0.03em",
+                            }}
+                          >
+                            {name}
+                          </span>
+                        </td>
+                        <td>
+                          <span
+                            className={`badge ${
                               row.status === "Active"
-                                ? "status-active"
-                                : "status-inactive"
+                                ? "bg-success"
+                                : "bg-secondary"
                             }`}
-                            onClick={() =>
-                              setConfirmModal({
-                                show: true,
-                                sno: row.Sno,
-                                currentStatus: row.status,
-                                name: row.CountryType,
-                              })
-                            }
                           >
                             {row.status}
-                          </button>
+                          </span>
                         </td>
-                      )}
-                    </tr>
-                  ))
+                        {canEdit && (
+                          <td className="text-center">
+                            <button
+                              className={`btn btn-xs status-btn ${
+                                row.status === "Active"
+                                  ? "status-active"
+                                  : "status-inactive"
+                              }`}
+                              onClick={() =>
+                                setConfirmModal({
+                                  show: true,
+                                  sno: row.Sno,
+                                  currentStatus: row.status,
+                                  name,
+                                })
+                              }
+                            >
+                              {row.status}
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="d-flex justify-content-between align-items-center mt-2 px-1">
                 <small className="text-muted">
@@ -360,7 +355,7 @@ export default function CountryType() {
             )}
           </div>
 
-          {/* ── Add Panel ──────────────────────────────────────────────── */}
+          {/* Add Panel */}
           {panel === "add" && (
             <div className="master-side-panel" style={{ flex: "0 0 41%" }}>
               <div className="panel-header d-flex justify-content-between align-items-center mb-3">
@@ -368,8 +363,8 @@ export default function CountryType() {
                   className="mb-0"
                   style={{ color: "#800000", fontWeight: 700 }}
                 >
-                  <i className="bi bi-plus-circle-fill me-2"></i>Create Country
-                  Type
+                  <i className="bi bi-plus-circle-fill me-2"></i>
+                  Create Customer Type
                 </h6>
                 <button
                   className="btn btn-sm btn-outline-secondary"
@@ -392,7 +387,7 @@ export default function CountryType() {
               <form onSubmit={handleAdd} noValidate>
                 <div className="mb-4">
                   <label className="form-label panel-label">
-                    Country Type <span className="text-danger">*</span>
+                    Customer Type <span className="text-danger">*</span>
                   </label>
                   <input
                     type="text"
@@ -443,7 +438,6 @@ export default function CountryType() {
         </div>
       </div>
 
-      {/* ── Confirm Toggle Modal ────────────────────────────────────────── */}
       {confirmModal.show && (
         <div className="modal-backdrop-custom">
           <div className="confirm-modal">

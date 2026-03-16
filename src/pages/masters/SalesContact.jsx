@@ -18,8 +18,8 @@ export default function SalesContact() {
   const [filtered, setFiltered] = useState([]);
   const [page, setPage] = useState(1);
 
-  const [searchName, setSearchName] = useState("");
-  const [searchEmail, setSearchEmail] = useState("");
+  // single search input
+  const [searchVal, setSearchVal] = useState("");
 
   const [panel, setPanel] = useState(null); // null | 'add' | 'edit'
   const [form, setForm] = useState(emptyForm);
@@ -40,6 +40,12 @@ export default function SalesContact() {
     if (!isLoggedIn()) navigate("/login", { replace: true });
   }, []);
 
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  const showAlert = (msg, type) => {
+    setAlert({ msg, type });
+    setTimeout(() => setAlert({ msg: "", type: "" }), 3500);
+  };
+
   // ── Fetch ─────────────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     try {
@@ -56,29 +62,36 @@ export default function SalesContact() {
     fetchData();
   }, [fetchData]);
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
-  const showAlert = (msg, type) => {
-    setAlert({ msg, type });
-    setTimeout(() => setAlert({ msg: "", type: "" }), 3500);
-  };
-
-  // ── Search ────────────────────────────────────────────────────────────────
+  // ── Single Search (name / email / mobile / landline / status) ────────────
   const handleSearch = () => {
-    const n = searchName.trim().toLowerCase();
-    const e = searchEmail.trim().toLowerCase();
+    const q = searchVal.trim().toLowerCase();
+    if (!q) {
+      setFiltered(allData);
+      setPage(1);
+      return;
+    }
+
     setFiltered(
-      allData.filter(
-        (row) =>
-          (!n || (row.salescontactname || "").toLowerCase().includes(n)) &&
-          (!e || (row.email || "").toLowerCase().includes(e)),
-      ),
+      allData.filter((row) => {
+        const name = (row.salescontactname || "").toLowerCase();
+        const email = (row.email || "").toLowerCase();
+        const mobile = (row.mobile || "").toLowerCase();
+        const landline = (row.landline || "").toLowerCase();
+        const status = (row.status || "").toLowerCase();
+        return (
+          name.includes(q) ||
+          email.includes(q) ||
+          mobile.includes(q) ||
+          landline.includes(q) ||
+          status.includes(q)
+        );
+      }),
     );
     setPage(1);
   };
 
   const handleClear = () => {
-    setSearchName("");
-    setSearchEmail("");
+    setSearchVal("");
     setFiltered(allData);
     setPage(1);
   };
@@ -228,33 +241,19 @@ export default function SalesContact() {
           </div>
         )}
 
-        {/* ── Toolbar ──────────────────────────────────────────────── */}
+        {/* ── Toolbar: single search ───────────────────────────────── */}
         <div className="master-toolbar mb-3 d-flex flex-wrap align-items-end gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
-              Name
+              Search (Name / Email / Mobile / Landline / Status)
             </label>
             <input
               type="text"
               className="form-control form-control-sm"
-              style={{ width: "180px" }}
-              placeholder="Search by Name..."
-              value={searchName}
-              onChange={(e) => setSearchName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            />
-          </div>
-          <div>
-            <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
-              Email
-            </label>
-            <input
-              type="text"
-              className="form-control form-control-sm"
-              style={{ width: "200px" }}
-              placeholder="Search by Email..."
-              value={searchEmail}
-              onChange={(e) => setSearchEmail(e.target.value)}
+              style={{ width: "260px" }}
+              placeholder="Type to search..."
+              value={searchVal}
+              onChange={(e) => setSearchVal(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             />
           </div>
@@ -336,7 +335,11 @@ export default function SalesContact() {
                       <td className="text-center">
                         {canEdit ? (
                           <button
-                            className={`btn btn-xs status-btn ${row.status === "Active" ? "status-active" : "status-inactive"}`}
+                            className={`btn btn-xs status-btn ${
+                              row.status === "Active"
+                                ? "status-active"
+                                : "status-inactive"
+                            }`}
                             onClick={() =>
                               setConfirmModal({
                                 show: true,
@@ -349,7 +352,11 @@ export default function SalesContact() {
                           </button>
                         ) : (
                           <span
-                            className={`badge ${row.status === "Active" ? "bg-success" : "bg-secondary"}`}
+                            className={`badge ${
+                              row.status === "Active"
+                                ? "bg-success"
+                                : "bg-secondary"
+                            }`}
                           >
                             {row.status}
                           </span>
@@ -392,7 +399,11 @@ export default function SalesContact() {
                         )}
                         <button
                           key={p}
-                          className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
+                          className={`btn btn-sm ${
+                            page === p
+                              ? "btn-primary-custom"
+                              : "btn-outline-secondary"
+                          }`}
                           onClick={() => setPage(p)}
                         >
                           {p}
@@ -420,7 +431,9 @@ export default function SalesContact() {
                   style={{ color: "#800000", fontWeight: 700 }}
                 >
                   <i
-                    className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}
+                    className={`bi ${
+                      panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"
+                    } me-2`}
                   ></i>
                   {panel === "add"
                     ? "Create Sales Contact"
@@ -446,7 +459,9 @@ export default function SalesContact() {
                   </label>
                   <input
                     type="text"
-                    className={`form-control form-control-sm ${fieldErrors.name ? "is-invalid" : ""}`}
+                    className={`form-control form-control-sm ${
+                      fieldErrors.name ? "is-invalid" : ""
+                    }`}
                     value={form.salescontactname}
                     onChange={(e) => {
                       setForm({ ...form, salescontactname: e.target.value });
@@ -481,7 +496,9 @@ export default function SalesContact() {
                   </label>
                   <input
                     type="email"
-                    className={`form-control form-control-sm ${fieldErrors.email ? "is-invalid" : ""}`}
+                    className={`form-control form-control-sm ${
+                      fieldErrors.email ? "is-invalid" : ""
+                    }`}
                     value={form.email}
                     onChange={(e) => {
                       setForm({ ...form, email: e.target.value });
@@ -512,7 +529,9 @@ export default function SalesContact() {
                   <label className="form-label panel-label">Mobile</label>
                   <input
                     type="text"
-                    className={`form-control form-control-sm ${fieldErrors.mobile ? "is-invalid" : ""}`}
+                    className={`form-control form-control-sm ${
+                      fieldErrors.mobile ? "is-invalid" : ""
+                    }`}
                     value={form.mobile}
                     onChange={(e) => {
                       setForm({ ...form, mobile: e.target.value });
@@ -538,7 +557,9 @@ export default function SalesContact() {
                   <label className="form-label panel-label">Landline</label>
                   <input
                     type="text"
-                    className={`form-control form-control-sm ${fieldErrors.landline ? "is-invalid" : ""}`}
+                    className={`form-control form-control-sm ${
+                      fieldErrors.landline ? "is-invalid" : ""
+                    }`}
                     value={form.landline}
                     onChange={(e) => {
                       setForm({ ...form, landline: e.target.value });
@@ -571,7 +592,11 @@ export default function SalesContact() {
                       <span className="spinner-border spinner-border-sm me-1"></span>
                     ) : (
                       <i
-                        className={`bi ${panel === "add" ? "bi-check-circle" : "bi-pencil-square"} me-1`}
+                        className={`bi ${
+                          panel === "add"
+                            ? "bi-check-circle"
+                            : "bi-pencil-square"
+                        } me-1`}
                       ></i>
                     )}
                     {panel === "add" ? "Save" : "Update"}

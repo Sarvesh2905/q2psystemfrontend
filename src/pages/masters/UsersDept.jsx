@@ -16,17 +16,16 @@ export default function UsersDept() {
 
   const canEdit = role === "Admin" || role === "Manager";
 
-  // ── State ────────────────────────────────────────────────────────────────
-  const [allData, setAllData] = useState([]); // full dataset
-  const [filtered, setFiltered] = useState([]); // after search
+  const [allData, setAllData] = useState([]);
+  const [filtered, setFiltered] = useState([]);
   const [page, setPage] = useState(1);
 
-  const [searchId, setSearchId] = useState("");
-  const [searchName, setSearchName] = useState("");
+  // single search field
+  const [searchVal, setSearchVal] = useState("");
 
   const [panel, setPanel] = useState(null); // null | 'add' | 'edit'
   const [form, setForm] = useState(emptyForm);
-  const [editOrigId, setEditOrigId] = useState(""); // original deptuserid for edit
+  const [editOrigId, setEditOrigId] = useState("");
 
   const [idError, setIdError] = useState("");
   const [alert, setAlert] = useState({ msg: "", type: "" });
@@ -39,19 +38,22 @@ export default function UsersDept() {
 
   const headers = { Authorization: `Bearer ${token}` };
 
-  // ── Auth guard ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!isLoggedIn()) navigate("/login", { replace: true });
   }, []);
 
-  // ── Fetch data ────────────────────────────────────────────────────────────
+  const showAlert = (msg, type) => {
+    setAlert({ msg, type });
+    setTimeout(() => setAlert({ msg: "", type: "" }), 3500);
+  };
+
   const fetchData = useCallback(async () => {
     try {
       const { data } = await axios.get(API, { headers });
       setAllData(data);
       setFiltered(data);
       setPage(1);
-    } catch (err) {
+    } catch {
       showAlert("Failed to load data.", "danger");
     }
   }, [token]);
@@ -60,37 +62,41 @@ export default function UsersDept() {
     fetchData();
   }, [fetchData]);
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
-  const showAlert = (msg, type) => {
-    setAlert({ msg, type });
-    setTimeout(() => setAlert({ msg: "", type: "" }), 3500);
-  };
-
-  // ── Search ────────────────────────────────────────────────────────────────
+  // ── Single search across all columns ───────────────────────────
   const handleSearch = () => {
-    const id = searchId.trim().toLowerCase();
-    const name = searchName.trim().toLowerCase();
-    const result = allData.filter(
-      (row) =>
-        (!id || row.deptuserid.toLowerCase().includes(id)) &&
-        (!name || (row.Username || "").toLowerCase().includes(name)),
-    );
+    const q = searchVal.trim().toLowerCase();
+    if (!q) {
+      setFiltered(allData);
+      setPage(1);
+      return;
+    }
+
+    const result = allData.filter((row) => {
+      const id = (row.deptuserid || "").toLowerCase();
+      const name = (row.Username || "").toLowerCase();
+      const email = (row.Email || "").toLowerCase();
+      const status = (row.status || "").toLowerCase();
+      return (
+        id.includes(q) ||
+        name.includes(q) ||
+        email.includes(q) ||
+        status.includes(q)
+      );
+    });
+
     setFiltered(result);
     setPage(1);
   };
 
   const handleClearSearch = () => {
-    setSearchId("");
-    setSearchName("");
+    setSearchVal("");
     setFiltered(allData);
     setPage(1);
   };
 
-  // ── Pagination ────────────────────────────────────────────────────────────
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  // ── Panel open/close ──────────────────────────────────────────────────────
   const openAdd = () => {
     setForm(emptyForm);
     setIdError("");
@@ -123,12 +129,13 @@ export default function UsersDept() {
     setIdError("");
   };
 
-  // ── Check duplicate ID (on blur) ──────────────────────────────────────────
   const checkDeptUserId = async () => {
     if (!form.deptuserid) return;
     try {
       const { data } = await axios.get(
-        `${API}/check-deptuserid?deptuserid=${encodeURIComponent(form.deptuserid)}`,
+        `${API}/check-deptuserid?deptuserid=${encodeURIComponent(
+          form.deptuserid,
+        )}`,
         { headers },
       );
       setIdError(data.exists ? data.message : "");
@@ -137,7 +144,6 @@ export default function UsersDept() {
     }
   };
 
-  // ── ADD submit ────────────────────────────────────────────────────────────
   const handleAdd = async (e) => {
     e.preventDefault();
     if (idError) return;
@@ -154,14 +160,16 @@ export default function UsersDept() {
     }
   };
 
-  // ── EDIT submit ───────────────────────────────────────────────────────────
   const handleEdit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
       const { data } = await axios.put(
         `${API}/${encodeURIComponent(editOrigId)}`,
-        { Username: form.Username, Email: form.Email },
+        {
+          Username: form.Username,
+          Email: form.Email,
+        },
         { headers },
       );
       showAlert(data.message, "success");
@@ -177,7 +185,6 @@ export default function UsersDept() {
     }
   };
 
-  // ── Toggle status ─────────────────────────────────────────────────────────
   const handleToggle = async () => {
     const { sno, currentStatus } = confirmModal;
     const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
@@ -194,13 +201,11 @@ export default function UsersDept() {
     }
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
       <DashboardNavbar />
 
       <div className="container-fluid px-3 py-3">
-        {/* Breadcrumb */}
         <div className="d-flex align-items-center gap-2 mb-3">
           <button
             className="btn btn-sm back-btn"
@@ -213,45 +218,29 @@ export default function UsersDept() {
           </span>
         </div>
 
-        {/* Page Title */}
         <h5 className="master-page-title mb-3">
           <i className="bi bi-people-fill me-2"></i>Department Users
         </h5>
 
-        {/* Global Alert */}
         {alert.msg && (
           <div className={`alert alert-${alert.type} py-2`} role="alert">
             {alert.msg}
           </div>
         )}
 
-        {/* ── Toolbar: Search + Add ───────────────────────────────── */}
+        {/* Single search box */}
         <div className="master-toolbar mb-3 d-flex flex-wrap align-items-end gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
-              Application Engineer ID
+              Search (ID / Name / Email / Status)
             </label>
             <input
               type="text"
               className="form-control form-control-sm"
-              style={{ width: "180px" }}
-              placeholder="Search by ID..."
-              value={searchId}
-              onChange={(e) => setSearchId(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            />
-          </div>
-          <div>
-            <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
-              Name
-            </label>
-            <input
-              type="text"
-              className="form-control form-control-sm"
-              style={{ width: "180px" }}
-              placeholder="Search by Name..."
-              value={searchName}
-              onChange={(e) => setSearchName(e.target.value)}
+              style={{ width: "260px" }}
+              placeholder="Type to search..."
+              value={searchVal}
+              onChange={(e) => setSearchVal(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             />
           </div>
@@ -270,7 +259,6 @@ export default function UsersDept() {
             </button>
           </div>
 
-          {/* Spacer */}
           <div className="ms-auto d-flex align-items-end gap-2">
             <span className="text-muted" style={{ fontSize: "0.82rem" }}>
               Records: <strong>{filtered.length}</strong>
@@ -286,9 +274,7 @@ export default function UsersDept() {
           </div>
         </div>
 
-        {/* ── Main area: Table + Panel side by side ──────────────── */}
         <div className="d-flex gap-3" style={{ minHeight: "60vh" }}>
-          {/* Table */}
           <div
             className="master-table-wrapper"
             style={{
@@ -333,7 +319,11 @@ export default function UsersDept() {
                       <td className="text-center">
                         {canEdit ? (
                           <button
-                            className={`btn btn-xs status-btn ${row.status === "Active" ? "status-active" : "status-inactive"}`}
+                            className={`btn btn-xs status-btn ${
+                              row.status === "Active"
+                                ? "status-active"
+                                : "status-inactive"
+                            }`}
                             onClick={() =>
                               setConfirmModal({
                                 show: true,
@@ -346,7 +336,11 @@ export default function UsersDept() {
                           </button>
                         ) : (
                           <span
-                            className={`badge ${row.status === "Active" ? "bg-success" : "bg-secondary"}`}
+                            className={`badge ${
+                              row.status === "Active"
+                                ? "bg-success"
+                                : "bg-secondary"
+                            }`}
                           >
                             {row.status}
                           </span>
@@ -358,7 +352,6 @@ export default function UsersDept() {
               </tbody>
             </table>
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="d-flex justify-content-between align-items-center mt-2 px-1">
                 <small className="text-muted">
@@ -389,7 +382,11 @@ export default function UsersDept() {
                         )}
                         <button
                           key={p}
-                          className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
+                          className={`btn btn-sm ${
+                            page === p
+                              ? "btn-primary-custom"
+                              : "btn-outline-secondary"
+                          }`}
                           onClick={() => setPage(p)}
                         >
                           {p}
@@ -408,7 +405,6 @@ export default function UsersDept() {
             )}
           </div>
 
-          {/* ── Side Panel: Add / Edit ────────────────────────────── */}
           {panel && (
             <div className="master-side-panel" style={{ flex: "0 0 38%" }}>
               <div className="panel-header d-flex justify-content-between align-items-center mb-3">
@@ -417,7 +413,9 @@ export default function UsersDept() {
                   style={{ color: "#800000", fontWeight: 700 }}
                 >
                   <i
-                    className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}
+                    className={`bi ${
+                      panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"
+                    } me-2`}
                   ></i>
                   {panel === "add"
                     ? "Create Department User"
@@ -435,7 +433,7 @@ export default function UsersDept() {
                 onSubmit={panel === "add" ? handleAdd : handleEdit}
                 noValidate
               >
-                {/* Application Engineer ID */}
+                {/* ID */}
                 <div className="mb-3">
                   <label className="form-label panel-label">
                     Application Engineer ID{" "}
@@ -445,7 +443,9 @@ export default function UsersDept() {
                     <>
                       <input
                         type="text"
-                        className={`form-control form-control-sm ${idError ? "is-invalid" : ""}`}
+                        className={`form-control form-control-sm ${
+                          idError ? "is-invalid" : ""
+                        }`}
                         value={form.deptuserid}
                         onChange={(e) => {
                           setForm({ ...form, deptuserid: e.target.value });
@@ -470,22 +470,32 @@ export default function UsersDept() {
                   )}
                 </div>
 
-                {/* Name */}
+                {/* Name (read-only in edit mode) */}
                 <div className="mb-3">
                   <label className="form-label panel-label">
                     Application Engineer Name{" "}
                     <span className="text-danger">*</span>
                   </label>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm"
-                    value={form.Username}
-                    onChange={(e) =>
-                      setForm({ ...form, Username: e.target.value })
-                    }
-                    required
-                    placeholder="Enter Name"
-                  />
+                  {panel === "add" ? (
+                    <input
+                      type="text"
+                      className="form-control form-control-sm"
+                      value={form.Username}
+                      onChange={(e) =>
+                        setForm({ ...form, Username: e.target.value })
+                      }
+                      required
+                      placeholder="Enter Name"
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      className="form-control form-control-sm"
+                      value={form.Username}
+                      readOnly
+                      style={{ backgroundColor: "#e9ecef" }}
+                    />
+                  )}
                 </div>
 
                 {/* Email */}
@@ -506,7 +516,6 @@ export default function UsersDept() {
                   />
                 </div>
 
-                {/* Buttons */}
                 <div className="d-flex gap-2">
                   <button
                     type="submit"
@@ -517,7 +526,11 @@ export default function UsersDept() {
                       <span className="spinner-border spinner-border-sm me-1"></span>
                     ) : (
                       <i
-                        className={`bi ${panel === "add" ? "bi-check-circle" : "bi-pencil-check"} me-1`}
+                        className={`bi ${
+                          panel === "add"
+                            ? "bi-check-circle"
+                            : "bi-pencil-check"
+                        } me-1`}
                       ></i>
                     )}
                     {panel === "add" ? "Save" : "Update"}
@@ -536,7 +549,6 @@ export default function UsersDept() {
         </div>
       </div>
 
-      {/* ── Confirm Toggle Modal ──────────────────────────────────── */}
       {confirmModal.show && (
         <div className="modal-backdrop-custom">
           <div className="confirm-modal">
@@ -560,7 +572,11 @@ export default function UsersDept() {
               <button
                 className="btn btn-sm btn-danger"
                 onClick={() =>
-                  setConfirmModal({ show: false, sno: null, currentStatus: "" })
+                  setConfirmModal({
+                    show: false,
+                    sno: null,
+                    currentStatus: "",
+                  })
                 }
               >
                 No

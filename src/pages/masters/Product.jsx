@@ -23,8 +23,10 @@ export default function Product() {
   const [allData, setAllData] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [page, setPage] = useState(1);
-  const [searchProduct, setSearchProduct] = useState("");
-  const [searchGroup, setSearchGroup] = useState("");
+
+  // single search
+  const [searchVal, setSearchVal] = useState("");
+
   const [panel, setPanel] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [editSno, setEditSno] = useState(null);
@@ -44,7 +46,11 @@ export default function Product() {
     if (!isLoggedIn()) navigate("/login", { replace: true });
   }, []);
 
-  // ── Fetch ─────────────────────────────────────────────────────────────────
+  const showAlert = (msg, type) => {
+    setAlert({ msg, type });
+    setTimeout(() => setAlert({ msg: "", type: "" }), 4000);
+  };
+
   const fetchData = useCallback(async () => {
     try {
       const { data } = await axios.get(API, { headers });
@@ -60,37 +66,39 @@ export default function Product() {
     fetchData();
   }, [fetchData]);
 
-  const showAlert = (msg, type) => {
-    setAlert({ msg, type });
-    setTimeout(() => setAlert({ msg: "", type: "" }), 4000);
-  };
-
-  // ── Search ────────────────────────────────────────────────────────────────
+  // ── Single search across ALL columns ─────────────────────────────────────
   const handleSearch = () => {
-    const p = searchProduct.trim().toLowerCase();
-    const g = searchGroup.trim().toLowerCase();
+    const q = searchVal.trim().toLowerCase();
+    if (!q) {
+      setFiltered(allData);
+      setPage(1);
+      return;
+    }
     setFiltered(
-      allData.filter(
-        (row) =>
-          (!p || (row.Products || "").toLowerCase().includes(p)) &&
-          (!g || (row.Prdgroup || "").toLowerCase().includes(g)),
+      allData.filter((row) =>
+        [
+          row.Products,
+          row.Description,
+          row.FacingFactory,
+          row.Prdgroup,
+          row.status,
+        ]
+          .map((v) => (v || "").toLowerCase())
+          .some((v) => v.includes(q)),
       ),
     );
     setPage(1);
   };
 
   const handleClear = () => {
-    setSearchProduct("");
-    setSearchGroup("");
+    setSearchVal("");
     setFiltered(allData);
     setPage(1);
   };
 
-  // ── Pagination ────────────────────────────────────────────────────────────
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  // ── Panel ─────────────────────────────────────────────────────────────────
   const openAdd = () => {
     setForm(emptyForm);
     setFieldErrors({});
@@ -100,10 +108,7 @@ export default function Product() {
 
   const openEdit = (row) => {
     if (row.status === "Inactive") {
-      showAlert(
-        `"${row.Products}" is Inactive and cannot be edited.`,
-        "warning",
-      );
+      showAlert(`"${row.Products}" is Inactive and cannot be edited.`, "warning");
       return;
     }
     setForm({
@@ -124,7 +129,6 @@ export default function Product() {
     setFieldErrors({});
   };
 
-  // ── Duplicate check for Products (on input, same as original) ────────────
   const checkProduct = async (val) => {
     if (!val.trim()) return;
     try {
@@ -150,7 +154,6 @@ export default function Product() {
       return e;
     });
 
-  // ── ADD ───────────────────────────────────────────────────────────────────
   const handleAdd = async (e) => {
     e.preventDefault();
     if (Object.keys(fieldErrors).length > 0) return;
@@ -161,16 +164,12 @@ export default function Product() {
       closePanel();
       fetchData();
     } catch (err) {
-      showAlert(
-        err.response?.data?.message || "Error adding product.",
-        "danger",
-      );
+      showAlert(err.response?.data?.message || "Error adding product.", "danger");
     } finally {
       setLoading(false);
     }
   };
 
-  // ── EDIT ──────────────────────────────────────────────────────────────────
   const handleEdit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -184,25 +183,16 @@ export default function Product() {
       closePanel();
       fetchData();
     } catch (err) {
-      showAlert(
-        err.response?.data?.message || "Error updating product.",
-        "danger",
-      );
+      showAlert(err.response?.data?.message || "Error updating product.", "danger");
     } finally {
       setLoading(false);
     }
   };
 
-  // ── TOGGLE ────────────────────────────────────────────────────────────────
   const handleToggle = async () => {
     const { sno, currentStatus } = confirmModal;
     const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
-    setConfirmModal({
-      show: false,
-      sno: null,
-      currentStatus: "",
-      productName: "",
-    });
+    setConfirmModal({ show: false, sno: null, currentStatus: "", productName: "" });
     try {
       const { data } = await axios.patch(
         `${API}/toggle/${sno}`,
@@ -225,12 +215,10 @@ export default function Product() {
     <>
       <DashboardNavbar />
       <div className="container-fluid px-3 py-3">
+
         {/* Breadcrumb */}
         <div className="d-flex align-items-center gap-2 mb-3">
-          <button
-            className="btn btn-sm back-btn"
-            onClick={() => navigate("/masters")}
-          >
+          <button className="btn btn-sm back-btn" onClick={() => navigate("/masters")}>
             <i className="bi bi-arrow-left-circle-fill me-1"></i>Back
           </button>
           <span className="text-muted" style={{ fontSize: "0.88rem" }}>
@@ -248,47 +236,27 @@ export default function Product() {
           </div>
         )}
 
-        {/* ── Toolbar ──────────────────────────────────────────────── */}
+        {/* ── Single Search Toolbar ─────────────────────────────── */}
         <div className="master-toolbar mb-3 d-flex flex-wrap align-items-end gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
-              Product Name
+              Search (All Columns)
             </label>
             <input
               type="text"
               className="form-control form-control-sm"
-              style={{ width: "190px" }}
-              placeholder="Search by Product..."
-              value={searchProduct}
-              onChange={(e) => setSearchProduct(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            />
-          </div>
-          <div>
-            <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
-              Group
-            </label>
-            <input
-              type="text"
-              className="form-control form-control-sm"
-              style={{ width: "160px" }}
-              placeholder="Search by Group..."
-              value={searchGroup}
-              onChange={(e) => setSearchGroup(e.target.value)}
+              style={{ width: "280px" }}
+              placeholder="Search Product, Description, Factory, Group..."
+              value={searchVal}
+              onChange={(e) => setSearchVal(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             />
           </div>
           <div className="d-flex gap-2 align-items-end">
-            <button
-              className="btn btn-sm btn-primary-custom"
-              onClick={handleSearch}
-            >
+            <button className="btn btn-sm btn-primary-custom" onClick={handleSearch}>
               <i className="bi bi-search me-1"></i>Search
             </button>
-            <button
-              className="btn btn-sm btn-outline-secondary"
-              onClick={handleClear}
-            >
+            <button className="btn btn-sm btn-outline-secondary" onClick={handleClear}>
               <i className="bi bi-x-circle me-1"></i>Clear
             </button>
           </div>
@@ -297,10 +265,7 @@ export default function Product() {
               Records: <strong>{filtered.length}</strong>
             </span>
             {canEdit && (
-              <button
-                className="btn btn-sm btn-primary-custom"
-                onClick={openAdd}
-              >
+              <button className="btn btn-sm btn-primary-custom" onClick={openAdd}>
                 <i className="bi bi-plus-circle-fill me-1"></i>Add
               </button>
             )}
@@ -309,14 +274,11 @@ export default function Product() {
 
         {/* ── Table + Panel ────────────────────────────────────────── */}
         <div className="d-flex gap-3" style={{ minHeight: "60vh" }}>
+
           {/* Table */}
           <div
             className="master-table-wrapper"
-            style={{
-              flex: panel ? "0 0 57%" : "1",
-              transition: "flex 0.3s",
-              overflowX: "auto",
-            }}
+            style={{ flex: panel ? "0 0 57%" : "1", transition: "flex 0.3s", overflowX: "auto" }}
           >
             <table className="table table-bordered table-hover master-table mb-0">
               <thead>
@@ -342,36 +304,25 @@ export default function Product() {
                       key={row.Sno}
                       onDoubleClick={() => canEdit && openEdit(row)}
                       style={{ cursor: canEdit ? "pointer" : "default" }}
-                      className={
-                        panel === "edit" && editSno === row.Sno
-                          ? "table-active"
-                          : ""
-                      }
+                      className={panel === "edit" && editSno === row.Sno ? "table-active" : ""}
                     >
                       <td>{(page - 1) * PAGE_SIZE + idx + 1}</td>
+                      <td><strong>{row.Products}</strong></td>
+                      <td style={{ fontSize: "0.84rem" }}>{row.Description || "—"}</td>
                       <td>
-                        <strong>{row.Products}</strong>
-                      </td>
-                      <td style={{ fontSize: "0.84rem" }}>
-                        {row.Description || "—"}
-                      </td>
-                      <td>
-                        <span className="badge bg-secondary">
-                          {row.FacingFactory}
-                        </span>
+                        <span className="badge bg-secondary">{row.FacingFactory}</span>
                       </td>
                       <td>
-                        <span
-                          className="badge"
-                          style={{ backgroundColor: "#800000", color: "#fff" }}
-                        >
+                        <span className="badge" style={{ backgroundColor: "#800000", color: "#fff" }}>
                           {row.Prdgroup}
                         </span>
                       </td>
                       <td className="text-center">
                         {canEdit ? (
                           <button
-                            className={`btn btn-xs status-btn ${row.status === "Active" ? "status-active" : "status-inactive"}`}
+                            className={`btn btn-xs status-btn ${
+                              row.status === "Active" ? "status-active" : "status-inactive"
+                            }`}
                             onClick={() =>
                               setConfirmModal({
                                 show: true,
@@ -384,9 +335,7 @@ export default function Product() {
                             {row.status}
                           </button>
                         ) : (
-                          <span
-                            className={`badge ${row.status === "Active" ? "bg-success" : "bg-secondary"}`}
-                          >
+                          <span className={`badge ${row.status === "Active" ? "bg-success" : "bg-secondary"}`}>
                             {row.status}
                           </span>
                         )}
@@ -400,9 +349,7 @@ export default function Product() {
             {/* Pagination */}
             {totalPages > 1 && (
               <div className="d-flex justify-content-between align-items-center mt-2 px-1">
-                <small className="text-muted">
-                  Page {page} of {totalPages}
-                </small>
+                <small className="text-muted">Page {page} of {totalPages}</small>
                 <div className="d-flex gap-1">
                   <button
                     className="btn btn-sm btn-outline-secondary"
@@ -412,16 +359,11 @@ export default function Product() {
                     <i className="bi bi-chevron-left"></i>
                   </button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter(
-                      (p) =>
-                        p === 1 || p === totalPages || Math.abs(p - page) <= 2,
-                    )
+                    .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
                     .map((p, i, arr) => (
                       <>
                         {i > 0 && arr[i - 1] !== p - 1 && (
-                          <span key={`e${p}`} className="btn btn-sm disabled">
-                            …
-                          </span>
+                          <span key={`e${p}`} className="btn btn-sm disabled">…</span>
                         )}
                         <button
                           key={p}
@@ -444,31 +386,21 @@ export default function Product() {
             )}
           </div>
 
-          {/* ── Side Panel ───────────────────────────────────────── */}
+          {/* ── Side Panel ─────────────────────────────────────── */}
           {panel && (
             <div className="master-side-panel" style={{ flex: "0 0 41%" }}>
               <div className="panel-header d-flex justify-content-between align-items-center mb-3">
-                <h6
-                  className="mb-0"
-                  style={{ color: "#800000", fontWeight: 700 }}
-                >
-                  <i
-                    className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}
-                  ></i>
+                <h6 className="mb-0" style={{ color: "#800000", fontWeight: 700 }}>
+                  <i className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}></i>
                   {panel === "add" ? "Create Product" : "Modify Product"}
                 </h6>
-                <button
-                  className="btn btn-sm btn-outline-secondary"
-                  onClick={closePanel}
-                >
+                <button className="btn btn-sm btn-outline-secondary" onClick={closePanel}>
                   <i className="bi bi-x-lg"></i>
                 </button>
               </div>
 
-              <form
-                onSubmit={panel === "add" ? handleAdd : handleEdit}
-                noValidate
-              >
+              <form onSubmit={panel === "add" ? handleAdd : handleEdit} noValidate>
+
                 {/* Product Name — locked in edit */}
                 <div className="mb-3">
                   <label className="form-label panel-label">
@@ -483,7 +415,7 @@ export default function Product() {
                       const v = e.target.value.toUpperCase();
                       setForm({ ...form, Products: v });
                       clearErr("Products");
-                      checkProduct(v); // live check on input (same as original)
+                      checkProduct(v);
                     }}
                     readOnly={panel === "edit"}
                     style={panel === "edit" ? lockedStyle : {}}
@@ -492,9 +424,7 @@ export default function Product() {
                     placeholder="e.g. REGULATOR"
                   />
                   {fieldErrors.Products && (
-                    <div className="invalid-feedback">
-                      {fieldErrors.Products}
-                    </div>
+                    <div className="invalid-feedback">{fieldErrors.Products}</div>
                   )}
                 </div>
 
@@ -505,9 +435,7 @@ export default function Product() {
                     className="form-control form-control-sm"
                     rows={4}
                     value={form.Description}
-                    onChange={(e) =>
-                      setForm({ ...form, Description: e.target.value })
-                    }
+                    onChange={(e) => setForm({ ...form, Description: e.target.value })}
                     maxLength={150}
                     placeholder="Optional product description..."
                   />
@@ -527,10 +455,7 @@ export default function Product() {
                     className="form-control form-control-sm"
                     value={form.FacingFactory}
                     onChange={(e) =>
-                      setForm({
-                        ...form,
-                        FacingFactory: e.target.value.toUpperCase(),
-                      })
+                      setForm({ ...form, FacingFactory: e.target.value.toUpperCase() })
                     }
                     readOnly={panel === "edit"}
                     style={panel === "edit" ? lockedStyle : {}}
@@ -551,10 +476,7 @@ export default function Product() {
                     className="form-control form-control-sm"
                     value={form.Prdgroup}
                     onChange={(e) =>
-                      setForm({
-                        ...form,
-                        Prdgroup: e.target.value.toUpperCase(),
-                      })
+                      setForm({ ...form, Prdgroup: e.target.value.toUpperCase() })
                     }
                     readOnly={panel === "edit"}
                     style={panel === "edit" ? lockedStyle : {}}
@@ -573,9 +495,7 @@ export default function Product() {
                     {loading ? (
                       <span className="spinner-border spinner-border-sm me-1"></span>
                     ) : (
-                      <i
-                        className={`bi ${panel === "add" ? "bi-check-circle" : "bi-pencil-square"} me-1`}
-                      ></i>
+                      <i className={`bi ${panel === "add" ? "bi-check-circle" : "bi-pencil-square"} me-1`}></i>
                     )}
                     {panel === "add" ? "Save" : "Update"}
                   </button>
@@ -603,29 +523,18 @@ export default function Product() {
             </h6>
             <p className="mb-4">
               Do you want to make the Product{" "}
-              <strong className="text-primary">
-                {confirmModal.productName}
-              </strong>{" "}
+              <strong className="text-primary">{confirmModal.productName}</strong>{" "}
               <strong>
-                {confirmModal.currentStatus === "Active"
-                  ? "Inactive"
-                  : "Active"}
+                {confirmModal.currentStatus === "Active" ? "Inactive" : "Active"}
               </strong>
               ?
             </p>
             <div className="d-flex gap-2 justify-content-end">
-              <button className="btn btn-sm btn-success" onClick={handleToggle}>
-                Yes
-              </button>
+              <button className="btn btn-sm btn-success" onClick={handleToggle}>Yes</button>
               <button
                 className="btn btn-sm btn-danger"
                 onClick={() =>
-                  setConfirmModal({
-                    show: false,
-                    sno: null,
-                    currentStatus: "",
-                    productName: "",
-                  })
+                  setConfirmModal({ show: false, sno: null, currentStatus: "", productName: "" })
                 }
               >
                 No
