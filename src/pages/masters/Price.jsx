@@ -5,11 +5,12 @@ import DashboardNavbar from "../../components/DashboardNavbar";
 import { getAuth, isLoggedIn } from "../../utils/auth";
 
 const API = "http://localhost:5001/api/price";
+const LTSA_API = "http://localhost:5001/api/ltsaprice";
 const PAGE_SIZE = 50;
 
 const emptyForm = {
   LTSACode: "DEFAULT00",
-  Customerpartno: "N",
+  Customerpartno: "",
   Cftipartno: "",
   Description: "",
   ListPrice: "",
@@ -24,49 +25,35 @@ const emptyForm = {
   Market: "FM",
 };
 
-// Format date for <input type="date"> (YYYY-MM-DD)
-const toInputDate = (val) => {
-  if (!val) return "";
-  if (typeof val === "string" && val.includes("T")) return val.split("T")[0];
-  return val;
-};
-
-// Format date for display (DD-MM-YYYY)
-const fmtDisplay = (val) => {
-  if (!val) return "—";
-  const d = new Date(val);
-  if (isNaN(d)) return val;
-  return `${String(d.getDate()).padStart(2, "0")}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
-};
-
 export default function Price() {
   const navigate = useNavigate();
   const { token, user } = getAuth();
   const role = user?.role;
   const canEdit = role === "Admin" || role === "Manager";
+  const canDownload = role === "Admin" || role === "Manager";
 
+  const [isLtsa, setIsLtsa] = useState(false);
   const [allData, setAllData] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [page, setPage] = useState(1);
-  const [searchLTSA, setSearchLTSA] = useState("");
-  const [searchPartno, setSearchPartno] = useState("");
+  const [searchVal, setSearchVal] = useState("");
   const [panel, setPanel] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [editSno, setEditSno] = useState(null);
-  const [fieldErrors, setFieldErrors] = useState({});
-  const [alert, setAlert] = useState({ msg: "", type: "" });
-  const [confirmModal, setConfirmModal] = useState({
-    show: false,
-    sno: null,
-    currentStatus: "",
-  });
-  const [loading, setLoading] = useState(false);
+  const [openQuoteWarning, setOpenQuoteWarning] = useState("");
   const [options, setOptions] = useState({
     leadtimes: [],
     deliveryterms: [],
     products: [],
   });
-  const [hasOpenQuote, setHasOpenQuote] = useState(false);
+  const [alert, setAlert] = useState({ msg: "", type: "" });
+  const [loading, setLoading] = useState(false);
+  const [confirmModal, setConfirmModal] = useState({
+    show: false,
+    sno: null,
+    currentStatus: "",
+    partno: "",
+  });
 
   const headers = { Authorization: `Bearer ${token}` };
 
@@ -74,25 +61,24 @@ export default function Price() {
     if (!isLoggedIn()) navigate("/login", { replace: true });
   }, []);
 
-  // ── Load dropdown options ─────────────────────────────────────────────────
   useEffect(() => {
     axios
       .get(`${API}/options`, { headers })
       .then((r) => setOptions(r.data))
       .catch(() => {});
-  }, [token]);
+  }, []);
 
-  // ── Fetch data ────────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     try {
-      const { data } = await axios.get(API, { headers });
+      const url = isLtsa ? LTSA_API : API;
+      const { data } = await axios.get(url, { headers });
       setAllData(data);
-      setFiltered(data);
+      applySearch(data, searchVal);
       setPage(1);
     } catch {
       showAlert("Failed to load data.", "danger");
     }
-  }, [token]);
+  }, [token, isLtsa]);
 
   useEffect(() => {
     fetchData();
@@ -103,165 +89,103 @@ export default function Price() {
     setTimeout(() => setAlert({ msg: "", type: "" }), 4500);
   };
 
-  // ── Today's date for default StartDate ───────────────────────────────────
-  const todayISO = () => new Date().toISOString().split("T")[0];
-
-  // ── Search ────────────────────────────────────────────────────────────────
-  const handleSearch = () => {
-    const l = searchLTSA.trim().toLowerCase();
-    const p = searchPartno.trim().toLowerCase();
+  const applySearch = (data, q) => {
+    const ql = (q || "").trim().toLowerCase();
     setFiltered(
-      allData.filter(
-        (row) =>
-          (!l || (row.LTSACode || "").toLowerCase().includes(l)) &&
-          (!p || (row.Cftipartno || "").toLowerCase().includes(p)),
-      ),
+      !ql
+        ? data
+        : data.filter(
+            (row) =>
+              (row.Cftipartno || "").toLowerCase().includes(ql) ||
+              (row.LTSACode || "").toLowerCase().includes(ql) ||
+              (row.Customerpartno || "").toLowerCase().includes(ql) ||
+              (row.Description || "").toLowerCase().includes(ql),
+          ),
     );
     setPage(1);
   };
 
+  const handleSearch = () => applySearch(allData, searchVal);
   const handleClear = () => {
-    setSearchLTSA("");
-    setSearchPartno("");
-    setFiltered(allData);
-    setPage(1);
+    setSearchVal("");
+    applySearch(allData, "");
   };
 
-  // ── Pagination ────────────────────────────────────────────────────────────
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pageNumbers = Array.from(
+    { length: totalPages },
+    (_, i) => i + 1,
+  ).filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2);
 
-  // ── Open Add Panel ────────────────────────────────────────────────────────
   const openAdd = () => {
-    setForm({ ...emptyForm, StartDate: todayISO() });
-    setFieldErrors({});
-    setHasOpenQuote(false);
-    setAlert({ msg: "", type: "" });
+    setForm(emptyForm);
+    setOpenQuoteWarning("");
     setPanel("add");
   };
 
-  // ── Open Edit Panel ───────────────────────────────────────────────────────
-  const openEdit = async (row) => {
+  const closePanel = () => {
+    setPanel(null);
+    setForm(emptyForm);
+    setEditSno(null);
+    setOpenQuoteWarning("");
+  };
+
+  const handleRowDblClick = async (row) => {
+    if (!canEdit) return;
     if (row.status === "Inactive") {
       showAlert(
-        `This price entry is Inactive and cannot be edited.`,
+        `"${row.Cftipartno}" is Inactive and cannot be edited.`,
         "warning",
       );
       return;
     }
+    try {
+      const { data } = await axios.get(`${API}/check/openquote`, {
+        headers,
+        params: {
+          cftipartno: row.Cftipartno,
+          custpartno: row.Customerpartno || "",
+        },
+      });
+      setOpenQuoteWarning(data.openquote ? data.message : "");
+    } catch {
+      setOpenQuoteWarning("");
+    }
+
+    setEditSno(row.Sno);
     setForm({
       LTSACode: row.LTSACode || "DEFAULT00",
-      Customerpartno: row.Customerpartno || "N",
+      Customerpartno: row.Customerpartno || "",
       Cftipartno: row.Cftipartno || "",
       Description: row.Description || "",
-      ListPrice: row.ListPrice ?? "",
-      StartDate: toInputDate(row.StartDate),
-      ExpDate: toInputDate(row.ExpDate),
+      ListPrice: isLtsa ? row.SplPrice || "" : row.ListPrice || "",
+      StartDate: row.StartDate ? row.StartDate.split("T")[0] : "",
+      ExpDate: row.ExpDate ? row.ExpDate.split("T")[0] : "",
       Curr: row.Curr || "USD",
       Leadtime: row.Leadtime || "",
       DeliveryTerm: row.DeliveryTerm || "",
       SPLCond: row.SPLCond || "",
       Remarks: row.Remarks || "",
       Product: row.Product || "",
-      Market: row.Market || "",
+      Market: row.Market || "FM",
     });
-    setEditSno(row.Sno);
-    setFieldErrors({});
-    setHasOpenQuote(false);
-    setAlert({ msg: "", type: "" });
-
-    // Check if open quote exists — if so, lock Leadtime/DeliveryTerm
-    try {
-      const params =
-        row.Customerpartno &&
-        row.Customerpartno !== "Y" &&
-        row.Customerpartno !== "N"
-          ? `cftipartno=${encodeURIComponent(row.Cftipartno)}&custpartno=${encodeURIComponent(row.Customerpartno)}`
-          : `cftipartno=${encodeURIComponent(row.Cftipartno)}`;
-      const { data } = await axios.get(`${API}/check/openquote?${params}`, {
-        headers,
-      });
-      if (data.openquote) {
-        setHasOpenQuote(true);
-        showAlert(data.message, "warning");
-      }
-    } catch {}
-
     setPanel("edit");
   };
 
-  const closePanel = () => {
-    setPanel(null);
-    setForm(emptyForm);
-    setFieldErrors({});
-    setHasOpenQuote(false);
-  };
-
-  // ── Check Customer PartNo duplicate ──────────────────────────────────────
-  const checkCustPartno = async (val) => {
-    if (!val || val === "Y" || val === "N") return;
-    try {
-      const { data } = await axios.get(
-        `${API}/check/custpartno?custpartno=${encodeURIComponent(val)}`,
-        { headers },
-      );
-      if (data.exists)
-        setFieldErrors((prev) => ({ ...prev, Customerpartno: data.message }));
-      else
-        setFieldErrors((prev) => {
-          const e = { ...prev };
-          delete e.Customerpartno;
-          return e;
-        });
-    } catch {}
-  };
-
-  const clearErr = (field) =>
-    setFieldErrors((prev) => {
-      const e = { ...prev };
-      delete e[field];
-      return e;
-    });
-
-  // ── ADD ───────────────────────────────────────────────────────────────────
   const handleAdd = async (e) => {
     e.preventDefault();
-    if (Object.keys(fieldErrors).length > 0) return;
     setLoading(true);
     try {
-      const { data } = await axios.post(API, form, { headers });
-      showAlert(data.message, "success");
-      closePanel();
-      fetchData();
-    } catch (err) {
-      showAlert(err.response?.data?.message || "Error adding price.", "danger");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ── EDIT ──────────────────────────────────────────────────────────────────
-  const handleEdit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const { data } = await axios.put(
-        `${API}/${editSno}`,
-        {
-          ExpDate: form.ExpDate,
-          Leadtime: form.Leadtime,
-          DeliveryTerm: form.DeliveryTerm,
-          SPLCond: form.SPLCond,
-          Remarks: form.Remarks,
-        },
-        { headers },
-      );
+      const url = isLtsa ? LTSA_API : API;
+      const payload = isLtsa ? { ...form, SplPrice: form.ListPrice } : form;
+      const { data } = await axios.post(url, payload, { headers });
       showAlert(data.message, "success");
       closePanel();
       fetchData();
     } catch (err) {
       showAlert(
-        err.response?.data?.message || "Error updating price.",
+        err.response?.data?.message || "Error adding record.",
         "danger",
       );
     } finally {
@@ -269,29 +193,73 @@ export default function Price() {
     }
   };
 
-  // ── TOGGLE ────────────────────────────────────────────────────────────────
+  const handleEdit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const url = isLtsa ? `${LTSA_API}/${editSno}` : `${API}/${editSno}`;
+      const payload = isLtsa
+        ? {
+            ExpDate: form.ExpDate || null,
+            Leadtime: form.Leadtime || null,
+            DeliveryTerm: form.DeliveryTerm || null,
+          }
+        : {
+            ExpDate: form.ExpDate || null,
+            Leadtime: form.Leadtime || null,
+            DeliveryTerm: form.DeliveryTerm || null,
+            SPLCond: form.SPLCond || null,
+            Remarks: form.Remarks || null,
+          };
+      const { data } = await axios.put(url, payload, { headers });
+      showAlert(data.message, "success");
+      closePanel();
+      fetchData();
+    } catch (err) {
+      showAlert(err.response?.data?.message || "Error updating.", "danger");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleToggle = async () => {
     const { sno, currentStatus } = confirmModal;
     const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
-    setConfirmModal({ show: false, sno: null, currentStatus: "" });
+    setConfirmModal({ show: false, sno: null, currentStatus: "", partno: "" });
     try {
-      await axios.patch(
-        `${API}/toggle/${sno}`,
-        { status: newStatus },
-        { headers },
-      );
+      const url = isLtsa ? `${LTSA_API}/toggle/${sno}` : `${API}/toggle/${sno}`;
+      await axios.patch(url, { status: newStatus }, { headers });
       fetchData();
     } catch {
       showAlert("Failed to toggle status.", "danger");
     }
   };
 
-  const lockedStyle = { backgroundColor: "#e9ecef" };
-  const today = todayISO();
-  // Min expiry = tomorrow
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowISO = tomorrow.toISOString().split("T")[0];
+  const handleDownload = async () => {
+    if (!canDownload) {
+      showAlert("Access denied. Only Admin/Manager can download.", "danger");
+      return;
+    }
+    try {
+      const url = isLtsa ? `${LTSA_API}/download` : `${API}/download`;
+      const response = await axios.get(url, { headers, responseType: "blob" });
+      const blob = new Blob([response.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      const today = new Date().toISOString().split("T")[0];
+      link.download = isLtsa
+        ? `ltsa_price_${today}.xlsx`
+        : `standard_price_${today}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    } catch {
+      showAlert("Failed to download file.", "danger");
+    }
+  };
 
   return (
     <>
@@ -306,47 +274,61 @@ export default function Price() {
             <i className="bi bi-arrow-left-circle-fill me-1"></i>Back
           </button>
           <span className="text-muted" style={{ fontSize: "0.88rem" }}>
-            Masters &rsaquo; <strong>Price (Standard)</strong>
+            Masters &rsaquo; <strong>Price Master</strong>
           </span>
         </div>
 
         <h5 className="master-page-title mb-3">
-          <i className="bi bi-tags-fill me-2"></i>Standard Price Master
+          <i className="bi bi-currency-dollar me-2"></i>Price Master
         </h5>
 
+        {/* Alert */}
         {alert.msg && (
           <div className={`alert alert-${alert.type} py-2`} role="alert">
             {alert.msg}
           </div>
         )}
 
-        {/* ── Toolbar ──────────────────────────────────────────────── */}
+        {/* LTSA Toggle */}
+        <div className="d-flex align-items-center gap-3 mb-3">
+          <div className="form-check form-switch mb-0">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              id="ltsaToggle"
+              checked={isLtsa}
+              onChange={(e) => {
+                setIsLtsa(e.target.checked);
+                closePanel();
+                setSearchVal("");
+              }}
+            />
+            <label
+              className="form-check-label fw-semibold"
+              htmlFor="ltsaToggle"
+              style={{
+                color: isLtsa ? "#1976d2" : "#555",
+                fontSize: "0.88rem",
+              }}
+            >
+              {isLtsa ? "🔵 LTSA Price" : "⚪ Standard Price"}
+            </label>
+          </div>
+        </div>
+
+        {/* Toolbar */}
         <div className="master-toolbar mb-3 d-flex flex-wrap align-items-end gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
-              LTSA Code
+              Search (CFTI PN / LTSA Code / Description)
             </label>
             <input
               type="text"
               className="form-control form-control-sm"
-              style={{ width: "150px" }}
-              placeholder="Search LTSA Code..."
-              value={searchLTSA}
-              onChange={(e) => setSearchLTSA(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            />
-          </div>
-          <div>
-            <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
-              CFTI Part No.
-            </label>
-            <input
-              type="text"
-              className="form-control form-control-sm"
-              style={{ width: "170px" }}
-              placeholder="Search Part No..."
-              value={searchPartno}
-              onChange={(e) => setSearchPartno(e.target.value)}
+              style={{ width: "280px" }}
+              placeholder="Search..."
+              value={searchVal}
+              onChange={(e) => setSearchVal(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             />
           </div>
@@ -364,10 +346,27 @@ export default function Price() {
               <i className="bi bi-x-circle me-1"></i>Clear
             </button>
           </div>
-          <div className="ms-auto d-flex align-items-end gap-2">
+          <div className="ms-auto d-flex align-items-end gap-2 flex-wrap">
             <span className="text-muted" style={{ fontSize: "0.82rem" }}>
               Records: <strong>{filtered.length}</strong>
             </span>
+
+            {/* Download — Admin/Manager only */}
+            {canDownload && (
+              <button
+                className="btn btn-sm btn-outline-secondary"
+                onClick={handleDownload}
+                title={
+                  isLtsa
+                    ? "Download LTSA Price Data"
+                    : "Download Standard Price Data"
+                }
+              >
+                <i className="bi bi-download me-1"></i>
+                {allData.length > 0 ? "Download Data" : "Download Template"}
+              </button>
+            )}
+
             {canEdit && (
               <button
                 className="btn btn-sm btn-primary-custom"
@@ -379,9 +378,8 @@ export default function Price() {
           </div>
         </div>
 
-        {/* ── Table + Panel ────────────────────────────────────────── */}
+        {/* Table + Panel */}
         <div className="d-flex gap-3" style={{ minHeight: "60vh" }}>
-          {/* Table */}
           <div
             className="master-table-wrapper"
             style={{
@@ -390,30 +388,31 @@ export default function Price() {
               overflowX: "auto",
             }}
           >
-            <table
-              className="table table-bordered table-hover master-table mb-0"
-              style={{ fontSize: "0.82rem" }}
-            >
+            <table className="table table-bordered table-hover master-table mb-0">
               <thead>
                 <tr>
-                  <th style={{ width: "3%" }}>S.No</th>
-                  <th style={{ width: "9%" }}>LTSA Code</th>
-                  <th style={{ width: "8%" }}>Cust.PN</th>
-                  <th style={{ width: "12%" }}>CFTI Part No.</th>
-                  <th style={{ width: "16%" }}>Description</th>
-                  <th style={{ width: "7%" }}>Price</th>
+                  <th style={{ width: "4%" }}>S.No</th>
+                  <th style={{ width: "10%" }}>LTSA Code</th>
+                  <th style={{ width: "10%" }}>Customer PN</th>
+                  <th style={{ width: "11%" }}>CFTI PN</th>
+                  <th>Description</th>
+                  <th style={{ width: "8%" }}>Price</th>
                   <th style={{ width: "9%" }}>Start Date</th>
                   <th style={{ width: "9%" }}>Exp Date</th>
-                  <th style={{ width: "5%" }}>Curr</th>
+                  <th style={{ width: "6%" }}>Curr</th>
                   <th style={{ width: "8%" }}>Product</th>
-                  <th style={{ width: "5%" }}>Market</th>
-                  <th style={{ width: "9%" }}>Action</th>
+                  <th style={{ width: "6%" }}>Market</th>
+                  <th style={{ width: "7%" }}>Status</th>
+                  {canEdit && <th style={{ width: "7%" }}>Action</th>}
                 </tr>
               </thead>
               <tbody>
                 {paginated.length === 0 ? (
                   <tr>
-                    <td colSpan={12} className="text-center text-muted py-4">
+                    <td
+                      colSpan={canEdit ? 13 : 12}
+                      className="text-center text-muted py-4"
+                    >
                       No records found.
                     </td>
                   </tr>
@@ -421,7 +420,7 @@ export default function Price() {
                   paginated.map((row, idx) => (
                     <tr
                       key={row.Sno}
-                      onDoubleClick={() => canEdit && openEdit(row)}
+                      onDoubleClick={() => handleRowDblClick(row)}
                       style={{ cursor: canEdit ? "pointer" : "default" }}
                       className={
                         panel === "edit" && editSno === row.Sno
@@ -432,90 +431,89 @@ export default function Price() {
                       <td>{(page - 1) * PAGE_SIZE + idx + 1}</td>
                       <td>
                         <span
-                          className="badge bg-dark"
-                          style={{ fontSize: "0.72rem" }}
+                          className="badge"
+                          style={{ background: "#1976d2", fontSize: "0.75rem" }}
                         >
-                          {row.LTSACode}
+                          {row.LTSACode || "—"}
                         </span>
                       </td>
-                      <td>{row.Customerpartno || "—"}</td>
-                      <td>
-                        <strong>{row.Cftipartno}</strong>
+                      <td style={{ fontSize: "0.82rem" }}>
+                        {row.Customerpartno || "—"}
                       </td>
+                      <td>
+                        <span
+                          className="badge"
+                          style={{ background: "#8B0000", fontSize: "0.75rem" }}
+                        >
+                          {row.Cftipartno}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: "0.82rem" }}>{row.Description}</td>
                       <td
-                        style={{
-                          maxWidth: "150px",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
+                        className="text-end fw-semibold"
+                        style={{ fontSize: "0.82rem" }}
                       >
-                        {row.Description || "—"}
+                        {Number(
+                          isLtsa ? row.SplPrice || 0 : row.ListPrice || 0,
+                        ).toFixed(2)}
                       </td>
-                      <td className="text-end">
-                        <strong>
-                          {row.Curr} {Number(row.ListPrice).toFixed(2)}
-                        </strong>
+                      <td style={{ fontSize: "0.8rem" }}>
+                        {row.StartDate ? row.StartDate.split("T")[0] : "—"}
                       </td>
-                      <td>{fmtDisplay(row.StartDate)}</td>
+                      <td style={{ fontSize: "0.8rem" }}>
+                        {row.ExpDate ? row.ExpDate.split("T")[0] : "—"}
+                      </td>
                       <td>
-                        {row.ExpDate ? (
-                          <span
-                            className={
-                              new Date(row.ExpDate) < new Date()
-                                ? "text-danger"
-                                : ""
-                            }
-                          >
-                            {fmtDisplay(row.ExpDate)}
-                          </span>
-                        ) : (
-                          <span className="text-muted">—</span>
-                        )}
+                        <span
+                          className="badge bg-secondary"
+                          style={{ fontSize: "0.75rem" }}
+                        >
+                          {row.Curr}
+                        </span>
                       </td>
-                      <td>{row.Curr}</td>
+                      <td style={{ fontSize: "0.82rem" }}>{row.Product}</td>
                       <td>
                         <span
                           className="badge"
                           style={{
-                            backgroundColor: "#800000",
-                            color: "#fff",
-                            fontSize: "0.72rem",
+                            background:
+                              row.Market === "FM" ? "#00838f" : "#7b1fa2",
+                            fontSize: "0.75rem",
                           }}
-                        >
-                          {row.Product}
-                        </span>
-                      </td>
-                      <td>
-                        <span
-                          className={`badge ${row.Market === "FM" ? "bg-info text-dark" : "bg-warning text-dark"}`}
-                          style={{ fontSize: "0.72rem" }}
                         >
                           {row.Market}
                         </span>
                       </td>
-                      <td className="text-center">
-                        {canEdit ? (
+                      <td>
+                        <span
+                          className={`badge ${row.status === "Active" ? "bg-success" : "bg-secondary"}`}
+                          style={{ fontSize: "0.75rem" }}
+                        >
+                          {row.status}
+                        </span>
+                      </td>
+                      {canEdit && (
+                        <td className="text-center">
                           <button
-                            className={`btn btn-xs status-btn ${row.status === "Active" ? "status-active" : "status-inactive"}`}
+                            className={`btn btn-xs ${
+                              row.status === "Active"
+                                ? "btn-outline-success"
+                                : "btn-outline-secondary"
+                            }`}
+                            style={{ fontSize: "0.72rem", padding: "2px 7px" }}
                             onClick={() =>
                               setConfirmModal({
                                 show: true,
                                 sno: row.Sno,
                                 currentStatus: row.status,
+                                partno: row.Cftipartno,
                               })
                             }
                           >
                             {row.status}
                           </button>
-                        ) : (
-                          <span
-                            className={`badge ${row.status === "Active" ? "bg-success" : "bg-secondary"}`}
-                          >
-                            {row.status}
-                          </span>
-                        )}
-                      </td>
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}
@@ -524,202 +522,193 @@ export default function Price() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="d-flex justify-content-between align-items-center mt-2 px-1">
-                <small className="text-muted">
-                  Page {page} of {totalPages}
-                </small>
-                <div className="d-flex gap-1">
-                  <button
-                    className="btn btn-sm btn-outline-secondary"
-                    disabled={page === 1}
-                    onClick={() => setPage((p) => p - 1)}
-                  >
-                    <i className="bi bi-chevron-left"></i>
-                  </button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter(
-                      (p) =>
-                        p === 1 || p === totalPages || Math.abs(p - page) <= 2,
-                    )
-                    .map((p, i, arr) => (
-                      <>
-                        {i > 0 && arr[i - 1] !== p - 1 && (
-                          <span key={`e${p}`} className="btn btn-sm disabled">
-                            …
-                          </span>
-                        )}
-                        <button
-                          key={p}
-                          className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
-                          onClick={() => setPage(p)}
-                        >
-                          {p}
-                        </button>
-                      </>
-                    ))}
-                  <button
-                    className="btn btn-sm btn-outline-secondary"
-                    disabled={page === totalPages}
-                    onClick={() => setPage((p) => p + 1)}
-                  >
-                    <i className="bi bi-chevron-right"></i>
-                  </button>
-                </div>
+              <div className="d-flex justify-content-center align-items-center gap-1 mt-2 flex-wrap">
+                <button
+                  className="btn btn-sm btn-outline-secondary"
+                  disabled={page === 1}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  ‹
+                </button>
+                {pageNumbers.map((p, i) => (
+                  <span key={i}>
+                    {i > 0 && pageNumbers[i - 1] !== p - 1 && (
+                      <span className="px-1 text-muted">…</span>
+                    )}
+                    <button
+                      className={`btn btn-sm ${
+                        p === page
+                          ? "btn-primary-custom"
+                          : "btn-outline-secondary"
+                      }`}
+                      onClick={() => setPage(p)}
+                    >
+                      {p}
+                    </button>
+                  </span>
+                ))}
+                <button
+                  className="btn btn-sm btn-outline-secondary"
+                  disabled={page === totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  ›
+                </button>
               </div>
             )}
           </div>
 
-          {/* ── Side Panel ───────────────────────────────────────── */}
+          {/* Add / Edit Side Panel */}
           {panel && (
             <div
-              className="master-side-panel"
-              style={{ flex: "0 0 41%", maxHeight: "85vh", overflowY: "auto" }}
+              className="master-edit-panel"
+              style={{ flex: "0 0 41%", overflowY: "auto" }}
             >
-              <div className="panel-header d-flex justify-content-between align-items-center mb-3">
-                <h6
-                  className="mb-0"
-                  style={{ color: "#800000", fontWeight: 700 }}
-                >
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <h6 className="fw-bold mb-0" style={{ color: "#8B0000" }}>
                   <i
-                    className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}
+                    className={`bi bi-${
+                      panel === "add" ? "plus-circle" : "pencil-square"
+                    } me-2`}
                   ></i>
-                  {panel === "add"
-                    ? "Create Price Entry"
-                    : "Modify Price Entry"}
+                  {panel === "add" ? "Create Price Entry" : "Edit Price Entry"}
                 </h6>
                 <button
                   className="btn btn-sm btn-outline-secondary"
                   onClick={closePanel}
                 >
-                  <i className="bi bi-x-lg"></i>
+                  ✕
                 </button>
               </div>
 
-              {hasOpenQuote && panel === "edit" && (
+              {openQuoteWarning && (
                 <div
-                  className="alert alert-warning py-1 mb-2"
+                  className="alert alert-warning py-2 mb-2"
                   style={{ fontSize: "0.8rem" }}
                 >
-                  <i className="bi bi-exclamation-triangle-fill me-1"></i>
-                  Open quotes exist — <strong>
-                    Leadtime & Delivery Term
-                  </strong>{" "}
-                  are locked.
+                  ⚠ {openQuoteWarning}
                 </div>
               )}
 
-              <form
-                onSubmit={panel === "add" ? handleAdd : handleEdit}
-                noValidate
-              >
-                {/* LTSA Code — always locked in standard price (DEFAULT00) */}
-                <div className="mb-2">
-                  <label className="form-label panel-label">LTSA Code</label>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm"
-                    value={form.LTSACode}
-                    readOnly
-                    style={lockedStyle}
-                  />
-                </div>
-
-                {/* Customer Part No — Y/N dropdown for standard, locked in edit */}
-                <div className="mb-2">
-                  <label className="form-label panel-label">
-                    Customer Part No.
-                  </label>
-                  {panel === "add" ? (
-                    <select
-                      className="form-select form-select-sm"
-                      value={form.Customerpartno}
+              <form onSubmit={panel === "add" ? handleAdd : handleEdit}>
+                <div className="row g-2">
+                  <div className="col-6">
+                    <label className="form-label form-label-sm">
+                      LTSA Code
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control form-control-sm"
+                      value={form.LTSACode}
                       onChange={(e) =>
-                        setForm({ ...form, Customerpartno: e.target.value })
+                        panel === "add" &&
+                        setForm((f) => ({ ...f, LTSACode: e.target.value }))
                       }
-                    >
-                      <option value="N">N</option>
-                      <option value="Y">Y</option>
-                    </select>
-                  ) : (
+                      readOnly={panel === "edit"}
+                      style={panel === "edit" ? { background: "#f0f0f0" } : {}}
+                    />
+                  </div>
+
+                  <div className="col-6">
+                    <label className="form-label form-label-sm">
+                      Customer PN
+                    </label>
                     <input
                       type="text"
                       className="form-control form-control-sm"
                       value={form.Customerpartno}
-                      readOnly
-                      style={lockedStyle}
+                      onChange={(e) =>
+                        panel === "add" &&
+                        setForm((f) => ({
+                          ...f,
+                          Customerpartno: e.target.value,
+                        }))
+                      }
+                      readOnly={panel === "edit"}
+                      style={panel === "edit" ? { background: "#f0f0f0" } : {}}
                     />
-                  )}
-                </div>
+                  </div>
 
-                {/* CFTI Part No — locked in edit */}
-                <div className="mb-2">
-                  <label className="form-label panel-label">
-                    CFTI Part No.{" "}
-                    {panel === "add" && <span className="text-danger">*</span>}
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm"
-                    value={form.Cftipartno}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        Cftipartno: e.target.value.toUpperCase(),
-                      })
-                    }
-                    readOnly={panel === "edit"}
-                    style={panel === "edit" ? lockedStyle : {}}
-                    required={panel === "add"}
-                    maxLength={20}
-                    placeholder="e.g. RGL-001"
-                  />
-                </div>
+                  <div className="col-6">
+                    <label className="form-label form-label-sm">
+                      CFTI Part No <span className="text-danger">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="form-control form-control-sm"
+                      value={form.Cftipartno}
+                      onChange={(e) =>
+                        panel === "add" &&
+                        setForm((f) => ({ ...f, Cftipartno: e.target.value }))
+                      }
+                      required
+                      readOnly={panel === "edit"}
+                      style={panel === "edit" ? { background: "#f0f0f0" } : {}}
+                      placeholder="e.g. RGL-001"
+                    />
+                  </div>
 
-                {/* Description — locked in edit */}
-                <div className="mb-2">
-                  <label className="form-label panel-label">
-                    Description <span className="text-danger">*</span>
-                  </label>
-                  <textarea
-                    className="form-control form-control-sm"
-                    rows={3}
-                    value={form.Description}
-                    onChange={(e) =>
-                      setForm({ ...form, Description: e.target.value })
-                    }
-                    readOnly={panel === "edit"}
-                    style={panel === "edit" ? lockedStyle : {}}
-                    required
-                    maxLength={52}
-                    placeholder="Product description"
-                  />
-                </div>
+                  <div className="col-6">
+                    <label className="form-label form-label-sm">
+                      Currency <span className="text-danger">*</span>
+                    </label>
+                    <select
+                      className="form-select form-select-sm"
+                      value={form.Curr}
+                      onChange={(e) =>
+                        panel === "add" &&
+                        setForm((f) => ({ ...f, Curr: e.target.value }))
+                      }
+                      disabled={panel === "edit"}
+                      required
+                    >
+                      <option value="USD">USD</option>
+                      <option value="INR">INR</option>
+                      <option value="EUR">EUR</option>
+                    </select>
+                  </div>
 
-                {/* List Price — locked in edit */}
-                <div className="mb-2">
-                  <label className="form-label panel-label">
-                    List Price <span className="text-danger">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0"
-                    className="form-control form-control-sm"
-                    value={form.ListPrice}
-                    onChange={(e) =>
-                      setForm({ ...form, ListPrice: e.target.value })
-                    }
-                    readOnly={panel === "edit"}
-                    style={panel === "edit" ? lockedStyle : {}}
-                    required={panel === "add"}
-                    placeholder="e.g. 1250.00"
-                  />
-                </div>
+                  <div className="col-12">
+                    <label className="form-label form-label-sm">
+                      Description <span className="text-danger">*</span>
+                    </label>
+                    <textarea
+                      className="form-control form-control-sm"
+                      rows={2}
+                      value={form.Description}
+                      onChange={(e) =>
+                        panel === "add" &&
+                        setForm((f) => ({ ...f, Description: e.target.value }))
+                      }
+                      required
+                      readOnly={panel === "edit"}
+                      style={panel === "edit" ? { background: "#f0f0f0" } : {}}
+                    />
+                  </div>
 
-                {/* Start Date + Exp Date */}
-                <div className="mb-2 d-flex gap-2">
-                  <div style={{ flex: 1 }}>
-                    <label className="form-label panel-label">
+                  <div className="col-6">
+                    <label className="form-label form-label-sm">
+                      {isLtsa ? "SPL Price" : "List Price"}{" "}
+                      <span className="text-danger">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className="form-control form-control-sm"
+                      value={form.ListPrice}
+                      onChange={(e) =>
+                        panel === "add" &&
+                        setForm((f) => ({ ...f, ListPrice: e.target.value }))
+                      }
+                      required
+                      readOnly={panel === "edit"}
+                      style={panel === "edit" ? { background: "#f0f0f0" } : {}}
+                    />
+                  </div>
+
+                  <div className="col-6">
+                    <label className="form-label form-label-sm">
                       Start Date <span className="text-danger">*</span>
                     </label>
                     <input
@@ -727,224 +716,175 @@ export default function Price() {
                       className="form-control form-control-sm"
                       value={form.StartDate}
                       onChange={(e) =>
-                        setForm({ ...form, StartDate: e.target.value })
+                        panel === "add" &&
+                        setForm((f) => ({ ...f, StartDate: e.target.value }))
                       }
+                      required
                       readOnly={panel === "edit"}
-                      style={panel === "edit" ? lockedStyle : {}}
-                      required={panel === "add"}
+                      style={panel === "edit" ? { background: "#f0f0f0" } : {}}
                     />
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <label className="form-label panel-label">Exp. Date</label>
+
+                  <div className="col-6">
+                    <label className="form-label form-label-sm">Exp Date</label>
                     <input
                       type="date"
                       className="form-control form-control-sm"
                       value={form.ExpDate}
                       onChange={(e) =>
-                        setForm({ ...form, ExpDate: e.target.value })
+                        setForm((f) => ({ ...f, ExpDate: e.target.value }))
                       }
-                      min={tomorrowISO}
                     />
                   </div>
-                </div>
 
-                {/* Currency — locked in edit */}
-                <div className="mb-2">
-                  <label className="form-label panel-label">
-                    Currency <span className="text-danger">*</span>
-                  </label>
-                  {panel === "add" ? (
+                  <div className="col-6">
+                    <label className="form-label form-label-sm">
+                      Lead Time <span className="text-danger">*</span>
+                    </label>
                     <select
                       className="form-select form-select-sm"
-                      value={form.Curr}
+                      value={form.Leadtime}
                       onChange={(e) =>
-                        setForm({ ...form, Curr: e.target.value })
+                        setForm((f) => ({ ...f, Leadtime: e.target.value }))
                       }
-                      required
+                      required={panel === "add"}
+                      disabled={panel === "edit" && !!openQuoteWarning}
+                      style={
+                        panel === "edit" && openQuoteWarning
+                          ? { background: "#f0f0f0" }
+                          : {}
+                      }
                     >
-                      <option value="USD">USD</option>
-                      <option value="INR">INR</option>
-                      <option value="EUR">EUR</option>
+                      <option value="">-- Select Lead Time --</option>
+                      {options.leadtimes.map((lt) => (
+                        <option key={lt} value={lt}>
+                          {lt}
+                        </option>
+                      ))}
                     </select>
-                  ) : (
-                    <input
-                      type="text"
-                      className="form-control form-control-sm"
-                      value={form.Curr}
-                      readOnly
-                      style={lockedStyle}
-                    />
-                  )}
-                </div>
+                  </div>
 
-                {/* Lead Time — locked if open quote */}
-                <div className="mb-2">
-                  <label className="form-label panel-label">
-                    Lead Time <span className="text-danger">*</span>
-                    {hasOpenQuote && (
-                      <span
-                        className="ms-1 text-danger"
-                        style={{ fontSize: "0.75rem" }}
-                      >
-                        🔒 Locked
-                      </span>
-                    )}
-                  </label>
-                  <select
-                    className="form-select form-select-sm"
-                    value={form.Leadtime}
-                    onChange={(e) =>
-                      setForm({ ...form, Leadtime: e.target.value })
-                    }
-                    disabled={hasOpenQuote}
-                    required={panel === "add"}
-                  >
-                    <option value="">-- Select Lead Time --</option>
-                    {options.leadtimes.map((lt, i) => (
-                      <option key={i} value={lt}>
-                        {lt}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                  <div className="col-6">
+                    <label className="form-label form-label-sm">
+                      Delivery Term <span className="text-danger">*</span>
+                    </label>
+                    <select
+                      className="form-select form-select-sm"
+                      value={form.DeliveryTerm}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, DeliveryTerm: e.target.value }))
+                      }
+                      required={panel === "add"}
+                      disabled={panel === "edit" && !!openQuoteWarning}
+                      style={
+                        panel === "edit" && openQuoteWarning
+                          ? { background: "#f0f0f0" }
+                          : {}
+                      }
+                    >
+                      <option value="">-- Select Delivery Term --</option>
+                      {options.deliveryterms.map((dt) => (
+                        <option key={dt} value={dt}>
+                          {dt}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                {/* Delivery Term — locked if open quote */}
-                <div className="mb-2">
-                  <label className="form-label panel-label">
-                    Delivery Term <span className="text-danger">*</span>
-                    {hasOpenQuote && (
-                      <span
-                        className="ms-1 text-danger"
-                        style={{ fontSize: "0.75rem" }}
-                      >
-                        🔒 Locked
-                      </span>
-                    )}
-                  </label>
-                  <select
-                    className="form-select form-select-sm"
-                    value={form.DeliveryTerm}
-                    onChange={(e) =>
-                      setForm({ ...form, DeliveryTerm: e.target.value })
-                    }
-                    disabled={hasOpenQuote}
-                    required={panel === "add"}
-                  >
-                    <option value="">-- Select Delivery Term --</option>
-                    {options.deliveryterms.map((dt, i) => (
-                      <option key={i} value={dt}>
-                        {dt}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Product — locked in edit */}
-                <div className="mb-2">
-                  <label className="form-label panel-label">
-                    Product <span className="text-danger">*</span>
-                  </label>
-                  {panel === "add" ? (
+                  <div className="col-6">
+                    <label className="form-label form-label-sm">
+                      Product <span className="text-danger">*</span>
+                    </label>
                     <select
                       className="form-select form-select-sm"
                       value={form.Product}
                       onChange={(e) =>
-                        setForm({ ...form, Product: e.target.value })
+                        panel === "add" &&
+                        setForm((f) => ({ ...f, Product: e.target.value }))
                       }
                       required
+                      disabled={panel === "edit"}
+                      style={panel === "edit" ? { background: "#f0f0f0" } : {}}
                     >
                       <option value="">-- Select Product --</option>
-                      {options.products.map((p, i) => (
-                        <option key={i} value={p}>
+                      {options.products.map((p) => (
+                        <option key={p} value={p}>
                           {p}
                         </option>
                       ))}
                     </select>
-                  ) : (
-                    <input
-                      type="text"
-                      className="form-control form-control-sm"
-                      value={form.Product}
-                      readOnly
-                      style={lockedStyle}
-                    />
-                  )}
-                </div>
+                  </div>
 
-                {/* Market — locked in edit */}
-                <div className="mb-2">
-                  <label className="form-label panel-label">
-                    Market <span className="text-danger">*</span>
-                  </label>
-                  {panel === "add" ? (
+                  <div className="col-6">
+                    <label className="form-label form-label-sm">
+                      Market <span className="text-danger">*</span>
+                    </label>
                     <select
                       className="form-select form-select-sm"
                       value={form.Market}
                       onChange={(e) =>
-                        setForm({ ...form, Market: e.target.value })
+                        panel === "add" &&
+                        setForm((f) => ({ ...f, Market: e.target.value }))
                       }
                       required
+                      disabled={panel === "edit"}
+                      style={panel === "edit" ? { background: "#f0f0f0" } : {}}
                     >
                       <option value="FM">FM</option>
                       <option value="AM">AM</option>
                     </select>
-                  ) : (
-                    <input
-                      type="text"
-                      className="form-control form-control-sm"
-                      value={form.Market}
-                      readOnly
-                      style={lockedStyle}
-                    />
+                  </div>
+
+                  {!isLtsa && (
+                    <div className="col-12">
+                      <label className="form-label form-label-sm">
+                        Spl. Condition
+                      </label>
+                      <textarea
+                        className="form-control form-control-sm"
+                        rows={2}
+                        value={form.SPLCond}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, SPLCond: e.target.value }))
+                        }
+                      />
+                    </div>
+                  )}
+
+                  {!isLtsa && (
+                    <div className="col-12">
+                      <label className="form-label form-label-sm">
+                        Remarks
+                      </label>
+                      <textarea
+                        className="form-control form-control-sm"
+                        rows={2}
+                        value={form.Remarks}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, Remarks: e.target.value }))
+                        }
+                      />
+                    </div>
                   )}
                 </div>
 
-                {/* SPLCond — always editable */}
-                <div className="mb-2">
-                  <label className="form-label panel-label">
-                    Spl. Condition
-                  </label>
-                  <textarea
-                    className="form-control form-control-sm"
-                    rows={2}
-                    value={form.SPLCond}
-                    onChange={(e) =>
-                      setForm({ ...form, SPLCond: e.target.value })
-                    }
-                    maxLength={10}
-                    placeholder="Optional"
-                  />
-                </div>
-
-                {/* Remarks — always editable */}
-                <div className="mb-3">
-                  <label className="form-label panel-label">Remarks</label>
-                  <textarea
-                    className="form-control form-control-sm"
-                    rows={2}
-                    value={form.Remarks}
-                    onChange={(e) =>
-                      setForm({ ...form, Remarks: e.target.value })
-                    }
-                    maxLength={10}
-                    placeholder="Optional"
-                  />
-                </div>
-
-                <div className="d-flex gap-2">
+                <div className="d-flex gap-2 mt-3">
                   <button
                     type="submit"
                     className="btn btn-sm btn-primary-custom flex-fill"
-                    disabled={loading || Object.keys(fieldErrors).length > 0}
+                    disabled={loading}
                   >
                     {loading ? (
-                      <span className="spinner-border spinner-border-sm me-1"></span>
+                      <>
+                        <span className="spinner-border spinner-border-sm me-1" />
+                        Saving...
+                      </>
                     ) : (
-                      <i
-                        className={`bi ${panel === "add" ? "bi-check-circle" : "bi-pencil-square"} me-1`}
-                      ></i>
+                      <>
+                        <i className="bi bi-check-circle me-1" />
+                        {panel === "add" ? "Save" : "Update"}
+                      </>
                     )}
-                    {panel === "add" ? "Save" : "Update"}
                   </button>
                   <button
                     type="button"
@@ -960,34 +900,69 @@ export default function Price() {
         </div>
       </div>
 
-      {/* ── Confirm Toggle Modal ──────────────────────────────────── */}
+      {/* Confirm Toggle Modal */}
       {confirmModal.show && (
-        <div className="modal-backdrop-custom">
-          <div className="confirm-modal">
-            <h6 className="mb-3" style={{ color: "#800000" }}>
-              <i className="bi bi-exclamation-triangle-fill me-2"></i>
-              Confirmation
-            </h6>
-            <p className="mb-4">
-              Do you want to make this Price entry{" "}
-              <strong>
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            background: "rgba(0,0,0,0.45)",
+            zIndex: 1050,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            className="bg-white rounded shadow p-4"
+            style={{ width: "360px" }}
+          >
+            <h6 className="fw-bold mb-2">Confirm Status Change</h6>
+            <p className="mb-3" style={{ fontSize: "0.9rem" }}>
+              Make <strong>{confirmModal.partno}</strong>{" "}
+              <strong
+                className={
+                  confirmModal.currentStatus === "Active"
+                    ? "text-danger"
+                    : "text-success"
+                }
+              >
                 {confirmModal.currentStatus === "Active"
                   ? "Inactive"
                   : "Active"}
               </strong>
               ?
+              {confirmModal.currentStatus === "Active" && (
+                <span
+                  className="d-block text-muted mt-1"
+                  style={{ fontSize: "0.8rem" }}
+                >
+                  Inactive records cannot be edited.
+                </span>
+              )}
             </p>
-            <div className="d-flex gap-2 justify-content-end">
-              <button className="btn btn-sm btn-success" onClick={handleToggle}>
-                Yes
+            <div className="d-flex gap-2">
+              <button
+                className="btn btn-sm btn-danger flex-fill"
+                onClick={handleToggle}
+              >
+                Yes, Confirm
               </button>
               <button
-                className="btn btn-sm btn-danger"
+                className="btn btn-sm btn-outline-secondary flex-fill"
                 onClick={() =>
-                  setConfirmModal({ show: false, sno: null, currentStatus: "" })
+                  setConfirmModal({
+                    show: false,
+                    sno: null,
+                    currentStatus: "",
+                    partno: "",
+                  })
                 }
               >
-                No
+                Cancel
               </button>
             </div>
           </div>
