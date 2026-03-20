@@ -19,7 +19,7 @@ export default function Reason() {
   const [filtered, setFiltered] = useState([]);
   const [page, setPage] = useState(1);
   const [searchVal, setSearchVal] = useState("");
-  const [panel, setPanel] = useState(null); // 'add' | 'edit' | null
+  const [panel, setPanel] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [editSno, setEditSno] = useState(null);
   const [editCodeLocked, setEditCodeLocked] = useState("");
@@ -54,13 +54,19 @@ export default function Reason() {
     setTimeout(() => setAlert({ msg: "", type: "" }), 4500);
   };
 
-  // ── Search ─────────────────────────────────────────────────────────────────
-  const handleSearch = () => {
-    const q = searchVal.trim().toLowerCase();
+  // ── Live Search ────────────────────────────────────────────────────────────
+  const handleLiveSearch = (e) => {
+    const val = e.target.value;
+    setSearchVal(val);
+    const q = val.trim().toLowerCase();
     setFiltered(
-      allData.filter(
-        (row) => !q || (row.ReasonCode || "").toLowerCase().includes(q),
-      ),
+      !q
+        ? allData
+        : allData.filter(
+            (row) =>
+              (row.ReasonCode || "").toLowerCase().includes(q) ||
+              (row.Description || "").toLowerCase().includes(q),
+          ),
     );
     setPage(1);
   };
@@ -75,6 +81,11 @@ export default function Reason() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  const pageNumbers = Array.from(
+    { length: totalPages },
+    (_, i) => i + 1,
+  ).filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2);
+
   // ── Open Add ───────────────────────────────────────────────────────────────
   const openAdd = () => {
     setForm(emptyForm);
@@ -85,9 +96,8 @@ export default function Reason() {
 
   // ── Double-click → Open Edit ───────────────────────────────────────────────
   const handleRowDblClick = (row) => {
-    // No status in reason — always allow edit
     setEditSno(row.Sno);
-    setEditCodeLocked(row.ReasonCode); // ReasonCode is LOCKED
+    setEditCodeLocked(row.ReasonCode);
     setForm({ ReasonCode: row.ReasonCode, Description: row.Description || "" });
     setDupError("");
     setAlert({ msg: "", type: "" });
@@ -162,12 +172,6 @@ export default function Reason() {
     }
   };
 
-  // ── Pagination page numbers ────────────────────────────────────────────────
-  const pageNumbers = Array.from(
-    { length: totalPages },
-    (_, i) => i + 1,
-  ).filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2);
-
   return (
     <>
       <DashboardNavbar />
@@ -189,15 +193,14 @@ export default function Reason() {
           <i className="bi bi-journal-text me-2"></i>Reason Master
         </h5>
 
-        {/* Alert */}
         {alert.msg && (
           <div className={`alert alert-${alert.type} py-2`} role="alert">
             {alert.msg}
           </div>
         )}
 
-        {/* ── Toolbar ──────────────────────────────────────────────── */}
-        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-end gap-2">
+        {/* ── Live Search Toolbar ───────────────────────────────────── */}
+        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-center gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
               Reason Code
@@ -208,25 +211,18 @@ export default function Reason() {
               style={{ width: "220px" }}
               placeholder="Search by Reason Code..."
               value={searchVal}
-              onChange={(e) => setSearchVal(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              onChange={handleLiveSearch}
             />
           </div>
-          <div className="d-flex gap-2 align-items-end">
+          {searchVal && (
             <button
-              className="btn btn-sm btn-primary-custom"
-              onClick={handleSearch}
-            >
-              <i className="bi bi-search me-1"></i>Search
-            </button>
-            <button
-              className="btn btn-sm btn-outline-secondary"
+              className="btn btn-sm btn-outline-secondary align-self-end"
               onClick={handleClear}
             >
               <i className="bi bi-x-circle me-1"></i>Clear
             </button>
-          </div>
-          <div className="ms-auto d-flex align-items-end gap-2">
+          )}
+          <div className="ms-auto d-flex align-items-center gap-2">
             <span className="text-muted" style={{ fontSize: "0.82rem" }}>
               Records: <strong>{filtered.length}</strong>
             </span>
@@ -325,11 +321,7 @@ export default function Reason() {
                       )}
                       <button
                         key={p}
-                        className={`btn btn-sm ${
-                          page === p
-                            ? "btn-primary-custom"
-                            : "btn-outline-secondary"
-                        }`}
+                        className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
                         onClick={() => setPage(p)}
                       >
                         {p}
@@ -357,9 +349,7 @@ export default function Reason() {
                   style={{ color: "#800000", fontWeight: 700 }}
                 >
                   <i
-                    className={`bi ${
-                      panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"
-                    } me-2`}
+                    className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}
                   ></i>
                   {panel === "add" ? "Create Reason" : "Edit Reason"}
                 </h6>
@@ -394,9 +384,7 @@ export default function Reason() {
                     <>
                       <input
                         type="text"
-                        className={`form-control form-control-sm ${
-                          dupError ? "is-invalid" : ""
-                        }`}
+                        className={`form-control form-control-sm ${dupError ? "is-invalid" : ""}`}
                         value={form.ReasonCode}
                         onChange={(e) => {
                           const v = e.target.value.toUpperCase();
@@ -470,9 +458,7 @@ export default function Reason() {
                       <span className="spinner-border spinner-border-sm me-1"></span>
                     ) : (
                       <i
-                        className={`bi ${
-                          panel === "add" ? "bi-check-circle" : "bi-save"
-                        } me-1`}
+                        className={`bi ${panel === "add" ? "bi-check-circle" : "bi-save"} me-1`}
                       ></i>
                     )}
                     {panel === "add" ? "Save" : "Update"}

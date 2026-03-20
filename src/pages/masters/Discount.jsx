@@ -24,10 +24,7 @@ export default function Discount() {
   const [allData, setAllData] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [page, setPage] = useState(1);
-
-  // single search
   const [searchVal, setSearchVal] = useState("");
-
   const [panel, setPanel] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [editSno, setEditSno] = useState(null);
@@ -71,26 +68,25 @@ export default function Discount() {
     fetchData();
   }, [fetchData]);
 
-  // ── Single search across ALL columns ─────────────────────────────────────
-  const handleSearch = () => {
-    const q = searchVal.trim().toLowerCase();
-    if (!q) {
-      setFiltered(allData);
-      setPage(1);
-      return;
-    }
+  // ── Live Search across ALL columns ────────────────────────────────────────
+  const handleLiveSearch = (e) => {
+    const val = e.target.value;
+    setSearchVal(val);
+    const q = val.trim().toLowerCase();
     setFiltered(
-      allData.filter((row) =>
-        [
-          row.Type,
-          row.Category,
-          row.Product,
-          row.Market,
-          row.Discount != null ? String(row.Discount) : "",
-        ]
-          .map((v) => (v || "").toLowerCase())
-          .some((v) => v.includes(q)),
-      ),
+      !q
+        ? allData
+        : allData.filter((row) =>
+            [
+              row.Type,
+              row.Category,
+              row.Product,
+              row.Market,
+              row.Discount != null ? String(row.Discount) : "",
+            ]
+              .map((v) => (v || "").toLowerCase())
+              .some((v) => v.includes(q)),
+          ),
     );
     setPage(1);
   };
@@ -170,7 +166,10 @@ export default function Discount() {
       closePanel();
       fetchData();
     } catch (err) {
-      showAlert(err.response?.data?.message || "Error adding discount.", "danger");
+      showAlert(
+        err.response?.data?.message || "Error adding discount.",
+        "danger",
+      );
     } finally {
       setLoading(false);
     }
@@ -189,7 +188,10 @@ export default function Discount() {
       closePanel();
       fetchData();
     } catch (err) {
-      showAlert(err.response?.data?.message || "Error updating discount.", "danger");
+      showAlert(
+        err.response?.data?.message || "Error updating discount.",
+        "danger",
+      );
     } finally {
       setLoading(false);
     }
@@ -201,10 +203,12 @@ export default function Discount() {
     <>
       <DashboardNavbar />
       <div className="container-fluid px-3 py-3">
-
         {/* Breadcrumb */}
         <div className="d-flex align-items-center gap-2 mb-3">
-          <button className="btn btn-sm back-btn" onClick={() => navigate("/masters")}>
+          <button
+            className="btn btn-sm back-btn"
+            onClick={() => navigate("/masters")}
+          >
             <i className="bi bi-arrow-left-circle-fill me-1"></i>Back
           </button>
           <span className="text-muted" style={{ fontSize: "0.88rem" }}>
@@ -222,8 +226,8 @@ export default function Discount() {
           </div>
         )}
 
-        {/* ── Single Search Toolbar ─────────────────────────────── */}
-        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-end gap-2">
+        {/* ── Live Search Toolbar ───────────────────────────────── */}
+        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-center gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
               Search (All Columns)
@@ -234,24 +238,26 @@ export default function Discount() {
               style={{ width: "280px" }}
               placeholder="Search Type, Category, Product, Market, Discount..."
               value={searchVal}
-              onChange={(e) => setSearchVal(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              onChange={handleLiveSearch}
             />
           </div>
-          <div className="d-flex gap-2 align-items-end">
-            <button className="btn btn-sm btn-primary-custom" onClick={handleSearch}>
-              <i className="bi bi-search me-1"></i>Search
-            </button>
-            <button className="btn btn-sm btn-outline-secondary" onClick={handleClear}>
+          {searchVal && (
+            <button
+              className="btn btn-sm btn-outline-secondary align-self-end"
+              onClick={handleClear}
+            >
               <i className="bi bi-x-circle me-1"></i>Clear
             </button>
-          </div>
-          <div className="ms-auto d-flex align-items-end gap-2">
+          )}
+          <div className="ms-auto d-flex align-items-center gap-2">
             <span className="text-muted" style={{ fontSize: "0.82rem" }}>
               Records: <strong>{filtered.length}</strong>
             </span>
             {canEdit && (
-              <button className="btn btn-sm btn-primary-custom" onClick={openAdd}>
+              <button
+                className="btn btn-sm btn-primary-custom"
+                onClick={openAdd}
+              >
                 <i className="bi bi-plus-circle-fill me-1"></i>Add
               </button>
             )}
@@ -260,11 +266,14 @@ export default function Discount() {
 
         {/* ── Table + Panel ────────────────────────────────────────── */}
         <div className="d-flex gap-3" style={{ minHeight: "60vh" }}>
-
           {/* Table */}
           <div
             className="master-table-wrapper"
-            style={{ flex: panel ? "0 0 57%" : "1", transition: "flex 0.3s", overflowX: "auto" }}
+            style={{
+              flex: panel ? "0 0 57%" : "1",
+              transition: "flex 0.3s",
+              overflowX: "auto",
+            }}
           >
             <table className="table table-bordered table-hover master-table mb-0">
               <thead>
@@ -290,7 +299,11 @@ export default function Discount() {
                       key={row.Sno}
                       onDoubleClick={() => canEdit && openEdit(row)}
                       style={{ cursor: canEdit ? "pointer" : "default" }}
-                      className={panel === "edit" && editSno === row.Sno ? "table-active" : ""}
+                      className={
+                        panel === "edit" && editSno === row.Sno
+                          ? "table-active"
+                          : ""
+                      }
                     >
                       <td>{(page - 1) * PAGE_SIZE + idx + 1}</td>
                       <td>
@@ -305,7 +318,11 @@ export default function Discount() {
                       <td>
                         <span
                           className="badge"
-                          style={{ backgroundColor: "#800000", color: "#fff", fontSize: "0.78rem" }}
+                          style={{
+                            backgroundColor: "#800000",
+                            color: "#fff",
+                            fontSize: "0.78rem",
+                          }}
                         >
                           {row.Product}
                         </span>
@@ -332,7 +349,9 @@ export default function Discount() {
             {/* Pagination */}
             {totalPages > 1 && (
               <div className="d-flex justify-content-between align-items-center mt-2 px-1">
-                <small className="text-muted">Page {page} of {totalPages}</small>
+                <small className="text-muted">
+                  Page {page} of {totalPages}
+                </small>
                 <div className="d-flex gap-1">
                   <button
                     className="btn btn-sm btn-outline-secondary"
@@ -342,11 +361,16 @@ export default function Discount() {
                     <i className="bi bi-chevron-left"></i>
                   </button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+                    .filter(
+                      (p) =>
+                        p === 1 || p === totalPages || Math.abs(p - page) <= 2,
+                    )
                     .map((p, i, arr) => (
                       <>
                         {i > 0 && arr[i - 1] !== p - 1 && (
-                          <span key={`e${p}`} className="btn btn-sm disabled">…</span>
+                          <span key={`e${p}`} className="btn btn-sm disabled">
+                            …
+                          </span>
                         )}
                         <button
                           key={p}
@@ -373,29 +397,43 @@ export default function Discount() {
           {panel && (
             <div className="master-side-panel" style={{ flex: "0 0 41%" }}>
               <div className="panel-header d-flex justify-content-between align-items-center mb-3">
-                <h6 className="mb-0" style={{ color: "#800000", fontWeight: 700 }}>
-                  <i className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}></i>
+                <h6
+                  className="mb-0"
+                  style={{ color: "#800000", fontWeight: 700 }}
+                >
+                  <i
+                    className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}
+                  ></i>
                   {panel === "add" ? "Create Discount" : "Modify Discount"}
                 </h6>
-                <button className="btn btn-sm btn-outline-secondary" onClick={closePanel}>
+                <button
+                  className="btn btn-sm btn-outline-secondary"
+                  onClick={closePanel}
+                >
                   <i className="bi bi-x-lg"></i>
                 </button>
               </div>
 
               {/* Duplicate warning banner */}
               {fieldErrors.combo && (
-                <div className="alert alert-danger py-1 mb-3" style={{ fontSize: "0.8rem" }}>
+                <div
+                  className="alert alert-danger py-1 mb-3"
+                  style={{ fontSize: "0.8rem" }}
+                >
                   <i className="bi bi-exclamation-triangle-fill me-1"></i>
                   {fieldErrors.combo}
                 </div>
               )}
 
-              <form onSubmit={panel === "add" ? handleAdd : handleEdit} noValidate>
-
+              <form
+                onSubmit={panel === "add" ? handleAdd : handleEdit}
+                noValidate
+              >
                 {/* TYPE — locked in edit */}
                 <div className="mb-3">
                   <label className="form-label panel-label">
-                    Type {panel === "add" && <span className="text-danger">*</span>}
+                    Type{" "}
+                    {panel === "add" && <span className="text-danger">*</span>}
                   </label>
                   {panel === "add" ? (
                     <select
@@ -403,7 +441,11 @@ export default function Discount() {
                       value={form.Type}
                       onChange={(e) => {
                         setForm((prev) => ({ ...prev, Type: e.target.value }));
-                        setFieldErrors((prev) => { const e2 = { ...prev }; delete e2.combo; return e2; });
+                        setFieldErrors((prev) => {
+                          const e2 = { ...prev };
+                          delete e2.combo;
+                          return e2;
+                        });
                       }}
                       required
                     >
@@ -412,64 +454,100 @@ export default function Discount() {
                       <option value="Project">Project</option>
                     </select>
                   ) : (
-                    <input className="form-control form-control-sm" value={editMeta.Type} readOnly style={lockedStyle} />
+                    <input
+                      className="form-control form-control-sm"
+                      value={editMeta.Type}
+                      readOnly
+                      style={lockedStyle}
+                    />
                   )}
                 </div>
 
                 {/* CATEGORY — locked in edit */}
                 <div className="mb-3">
                   <label className="form-label panel-label">
-                    Category {panel === "add" && <span className="text-danger">*</span>}
+                    Category{" "}
+                    {panel === "add" && <span className="text-danger">*</span>}
                   </label>
                   {panel === "add" ? (
                     <select
                       className="form-select form-select-sm"
                       value={form.Category}
                       onChange={(e) => {
-                        setForm((prev) => ({ ...prev, Category: e.target.value }));
-                        setFieldErrors((prev) => { const e2 = { ...prev }; delete e2.combo; return e2; });
+                        setForm((prev) => ({
+                          ...prev,
+                          Category: e.target.value,
+                        }));
+                        setFieldErrors((prev) => {
+                          const e2 = { ...prev };
+                          delete e2.combo;
+                          return e2;
+                        });
                       }}
                       required
                     >
                       <option value="">-- Select Category --</option>
                       {options.categories.map((c, i) => (
-                        <option key={i} value={c}>{c}</option>
+                        <option key={i} value={c}>
+                          {c}
+                        </option>
                       ))}
                     </select>
                   ) : (
-                    <input className="form-control form-control-sm" value={editMeta.Category} readOnly style={lockedStyle} />
+                    <input
+                      className="form-control form-control-sm"
+                      value={editMeta.Category}
+                      readOnly
+                      style={lockedStyle}
+                    />
                   )}
                 </div>
 
                 {/* PRODUCT — locked in edit */}
                 <div className="mb-3">
                   <label className="form-label panel-label">
-                    Product {panel === "add" && <span className="text-danger">*</span>}
+                    Product{" "}
+                    {panel === "add" && <span className="text-danger">*</span>}
                   </label>
                   {panel === "add" ? (
                     <select
                       className="form-select form-select-sm"
                       value={form.Product}
                       onChange={(e) => {
-                        setForm((prev) => ({ ...prev, Product: e.target.value }));
-                        setFieldErrors((prev) => { const e2 = { ...prev }; delete e2.combo; return e2; });
+                        setForm((prev) => ({
+                          ...prev,
+                          Product: e.target.value,
+                        }));
+                        setFieldErrors((prev) => {
+                          const e2 = { ...prev };
+                          delete e2.combo;
+                          return e2;
+                        });
                       }}
                       required
                     >
                       <option value="">-- Select Product --</option>
                       {options.products.map((p, i) => (
-                        <option key={i} value={p}>{p}</option>
+                        <option key={i} value={p}>
+                          {p}
+                        </option>
                       ))}
                     </select>
                   ) : (
-                    <input className="form-control form-control-sm" value={editMeta.Product} readOnly style={lockedStyle} />
+                    <input
+                      className="form-control form-control-sm"
+                      value={editMeta.Product}
+                      readOnly
+                      style={lockedStyle}
+                    />
                   )}
                 </div>
 
                 {/* MARKET — locked in edit; duplicate check on change */}
                 <div className="mb-3">
                   <label className="form-label panel-label">
-                    Market {panel === "add" && <span className="text-danger">*</span>}
+                    Market{" "}
+                    {panel === "add" && <span className="text-danger">*</span>}
                   </label>
                   {panel === "add" ? (
                     <select
@@ -478,9 +556,18 @@ export default function Discount() {
                       onChange={(e) => {
                         const v = e.target.value;
                         setForm((prev) => ({ ...prev, Market: v }));
-                        setFieldErrors((prev) => { const e2 = { ...prev }; delete e2.combo; return e2; });
+                        setFieldErrors((prev) => {
+                          const e2 = { ...prev };
+                          delete e2.combo;
+                          return e2;
+                        });
                         if (form.Type && form.Category && form.Product && v)
-                          checkDuplicate(form.Type, form.Category, form.Product, v);
+                          checkDuplicate(
+                            form.Type,
+                            form.Category,
+                            form.Product,
+                            v,
+                          );
                       }}
                       required
                     >
@@ -489,7 +576,12 @@ export default function Discount() {
                       <option value="AM">AM</option>
                     </select>
                   ) : (
-                    <input className="form-control form-control-sm" value={editMeta.Market} readOnly style={lockedStyle} />
+                    <input
+                      className="form-control form-control-sm"
+                      value={editMeta.Market}
+                      readOnly
+                      style={lockedStyle}
+                    />
                   )}
                 </div>
 
@@ -505,8 +597,13 @@ export default function Discount() {
                     max="100"
                     className="form-control form-control-sm"
                     value={form.Discount}
-                    onChange={(e) => setForm((prev) => ({ ...prev, Discount: e.target.value }))}
-                    onBlur={(e) => { if (panel === "edit") checkOpenQuoteOnDiscount(e.target.value); }}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, Discount: e.target.value }))
+                    }
+                    onBlur={(e) => {
+                      if (panel === "edit")
+                        checkOpenQuoteOnDiscount(e.target.value);
+                    }}
                     required
                     placeholder="e.g. 10.5"
                   />
@@ -521,11 +618,17 @@ export default function Discount() {
                     {loading ? (
                       <span className="spinner-border spinner-border-sm me-1"></span>
                     ) : (
-                      <i className={`bi ${panel === "add" ? "bi-check-circle" : "bi-pencil-square"} me-1`}></i>
+                      <i
+                        className={`bi ${panel === "add" ? "bi-check-circle" : "bi-pencil-square"} me-1`}
+                      ></i>
                     )}
                     {panel === "add" ? "Save" : "Update"}
                   </button>
-                  <button type="button" className="btn btn-sm btn-outline-secondary flex-fill" onClick={closePanel}>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary flex-fill"
+                    onClick={closePanel}
+                  >
                     Cancel
                   </button>
                 </div>

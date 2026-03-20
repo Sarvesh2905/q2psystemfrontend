@@ -91,33 +91,32 @@ export default function Customer() {
     fetchData();
   }, [fetchData]);
 
-  // ── Single search across ALL columns ─────────────────────────────────────
-  const handleSearch = () => {
-    const q = searchVal.trim().toLowerCase();
-    if (!q) {
-      setFiltered(allData);
-      setPage(1);
-      return;
-    }
+  // ── Live Search across ALL columns ────────────────────────────────────────
+  const handleLiveSearch = (e) => {
+    const val = e.target.value;
+    setSearchVal(val);
+    const q = val.trim().toLowerCase();
     setFiltered(
-      allData.filter((row) => {
-        return [
-          row.customername,
-          row.customertype,
-          row.customercountry,
-          row.Location,
-          row.City,
-          row.State,
-          row.Region,
-          row.SubRegion,
-          row.Category,
-          row.Shortname,
-          row.Address,
-          row.status,
-        ]
-          .map((v) => (v || "").toLowerCase())
-          .some((v) => v.includes(q));
-      }),
+      !q
+        ? allData
+        : allData.filter((row) =>
+            [
+              row.customername,
+              row.customertype,
+              row.customercountry,
+              row.Location,
+              row.City,
+              row.State,
+              row.Region,
+              row.SubRegion,
+              row.Category,
+              row.Shortname,
+              row.Address,
+              row.status,
+            ]
+              .map((v) => (v || "").toLowerCase())
+              .some((v) => v.includes(q)),
+          ),
     );
     setPage(1);
   };
@@ -140,7 +139,10 @@ export default function Customer() {
 
   const openEdit = (row) => {
     if (row.status === "Inactive") {
-      showAlert(`"${row.customername}" is Inactive and cannot be edited.`, "warning");
+      showAlert(
+        `"${row.customername}" is Inactive and cannot be edited.`,
+        "warning",
+      );
       return;
     }
     setForm({
@@ -205,7 +207,10 @@ export default function Customer() {
       closePanel();
       fetchData();
     } catch (err) {
-      showAlert(err.response?.data?.message || "Error adding customer.", "danger");
+      showAlert(
+        err.response?.data?.message || "Error adding customer.",
+        "danger",
+      );
     } finally {
       setLoading(false);
     }
@@ -216,19 +221,41 @@ export default function Customer() {
     setLoading(true);
     try {
       const {
-        Address, City, State, Region, SubRegion,
-        Location, Category, Shortname, Ltsacode, Segment,
+        Address,
+        City,
+        State,
+        Region,
+        SubRegion,
+        Location,
+        Category,
+        Shortname,
+        Ltsacode,
+        Segment,
       } = form;
       const { data } = await axios.put(
         `${API}/${editSno}`,
-        { Address, City, State, Region, SubRegion, Location, Category, Shortname, Ltsacode, Segment },
+        {
+          Address,
+          City,
+          State,
+          Region,
+          SubRegion,
+          Location,
+          Category,
+          Shortname,
+          Ltsacode,
+          Segment,
+        },
         { headers },
       );
       showAlert(data.message, "success");
       closePanel();
       fetchData();
     } catch (err) {
-      showAlert(err.response?.data?.message || "Error updating customer.", "danger");
+      showAlert(
+        err.response?.data?.message || "Error updating customer.",
+        "danger",
+      );
     } finally {
       setLoading(false);
     }
@@ -239,7 +266,11 @@ export default function Customer() {
     const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
     setConfirmModal({ show: false, sno: null, currentStatus: "" });
     try {
-      await axios.patch(`${API}/toggle/${sno}`, { status: newStatus }, { headers });
+      await axios.patch(
+        `${API}/toggle/${sno}`,
+        { status: newStatus },
+        { headers },
+      );
       fetchData();
     } catch {
       showAlert("Failed to toggle status.", "danger");
@@ -252,10 +283,12 @@ export default function Customer() {
     <>
       <DashboardNavbar />
       <div className="container-fluid px-3 py-3">
-
         {/* Breadcrumb */}
         <div className="d-flex align-items-center gap-2 mb-3">
-          <button className="btn btn-sm back-btn" onClick={() => navigate("/masters")}>
+          <button
+            className="btn btn-sm back-btn"
+            onClick={() => navigate("/masters")}
+          >
             <i className="bi bi-arrow-left-circle-fill me-1"></i>Back
           </button>
           <span className="text-muted" style={{ fontSize: "0.88rem" }}>
@@ -273,8 +306,8 @@ export default function Customer() {
           </div>
         )}
 
-        {/* ── Single Search Toolbar ─────────────────────────────── */}
-        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-end gap-2">
+        {/* ── Live Search Toolbar ───────────────────────────────── */}
+        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-center gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
               Search (All Columns)
@@ -285,24 +318,26 @@ export default function Customer() {
               style={{ width: "280px" }}
               placeholder="Search Name, Type, City, Country, Region..."
               value={searchVal}
-              onChange={(e) => setSearchVal(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              onChange={handleLiveSearch}
             />
           </div>
-          <div className="d-flex gap-2 align-items-end">
-            <button className="btn btn-sm btn-primary-custom" onClick={handleSearch}>
-              <i className="bi bi-search me-1"></i>Search
-            </button>
-            <button className="btn btn-sm btn-outline-secondary" onClick={handleClear}>
+          {searchVal && (
+            <button
+              className="btn btn-sm btn-outline-secondary align-self-end"
+              onClick={handleClear}
+            >
               <i className="bi bi-x-circle me-1"></i>Clear
             </button>
-          </div>
-          <div className="ms-auto d-flex align-items-end gap-2">
+          )}
+          <div className="ms-auto d-flex align-items-center gap-2">
             <span className="text-muted" style={{ fontSize: "0.82rem" }}>
               Records: <strong>{filtered.length}</strong>
             </span>
             {canEdit && (
-              <button className="btn btn-sm btn-primary-custom" onClick={openAdd}>
+              <button
+                className="btn btn-sm btn-primary-custom"
+                onClick={openAdd}
+              >
                 <i className="bi bi-plus-circle-fill me-1"></i>Add
               </button>
             )}
@@ -311,11 +346,14 @@ export default function Customer() {
 
         {/* ── Table + Panel ────────────────────────────────────── */}
         <div className="d-flex gap-3" style={{ minHeight: "60vh" }}>
-
           {/* Table */}
           <div
             className="master-table-wrapper"
-            style={{ flex: panel ? "0 0 55%" : "1", transition: "flex 0.3s", overflowX: "auto" }}
+            style={{
+              flex: panel ? "0 0 55%" : "1",
+              transition: "flex 0.3s",
+              overflowX: "auto",
+            }}
           >
             <table className="table table-bordered table-hover master-table mb-0">
               <thead>
@@ -345,7 +383,9 @@ export default function Customer() {
                       onDoubleClick={() => canEdit && openEdit(row)}
                       style={{ cursor: canEdit ? "pointer" : "default" }}
                       className={
-                        panel === "edit" && editSno === row.Sno ? "table-active" : ""
+                        panel === "edit" && editSno === row.Sno
+                          ? "table-active"
+                          : ""
                       }
                     >
                       <td>{(page - 1) * PAGE_SIZE + idx + 1}</td>
@@ -360,7 +400,9 @@ export default function Customer() {
                         {canEdit ? (
                           <button
                             className={`btn btn-xs status-btn ${
-                              row.status === "Active" ? "status-active" : "status-inactive"
+                              row.status === "Active"
+                                ? "status-active"
+                                : "status-inactive"
                             }`}
                             onClick={() =>
                               setConfirmModal({
@@ -373,7 +415,9 @@ export default function Customer() {
                             {row.status}
                           </button>
                         ) : (
-                          <span className={`badge ${row.status === "Active" ? "bg-success" : "bg-secondary"}`}>
+                          <span
+                            className={`badge ${row.status === "Active" ? "bg-success" : "bg-secondary"}`}
+                          >
                             {row.status}
                           </span>
                         )}
@@ -387,7 +431,9 @@ export default function Customer() {
             {/* Pagination */}
             {totalPages > 1 && (
               <div className="d-flex justify-content-between align-items-center mt-2 px-1">
-                <small className="text-muted">Page {page} of {totalPages}</small>
+                <small className="text-muted">
+                  Page {page} of {totalPages}
+                </small>
                 <div className="d-flex gap-1">
                   <button
                     className="btn btn-sm btn-outline-secondary"
@@ -397,11 +443,16 @@ export default function Customer() {
                     <i className="bi bi-chevron-left"></i>
                   </button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+                    .filter(
+                      (p) =>
+                        p === 1 || p === totalPages || Math.abs(p - page) <= 2,
+                    )
                     .map((p, i, arr) => (
                       <>
                         {i > 0 && arr[i - 1] !== p - 1 && (
-                          <span key={`e${p}`} className="btn btn-sm disabled">…</span>
+                          <span key={`e${p}`} className="btn btn-sm disabled">
+                            …
+                          </span>
                         )}
                         <button
                           key={p}
@@ -431,17 +482,27 @@ export default function Customer() {
               style={{ flex: "0 0 43%", maxHeight: "80vh", overflowY: "auto" }}
             >
               <div className="panel-header d-flex justify-content-between align-items-center mb-3">
-                <h6 className="mb-0" style={{ color: "#800000", fontWeight: 700 }}>
-                  <i className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}></i>
+                <h6
+                  className="mb-0"
+                  style={{ color: "#800000", fontWeight: 700 }}
+                >
+                  <i
+                    className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}
+                  ></i>
                   {panel === "add" ? "Create Customer" : "Modify Customer"}
                 </h6>
-                <button className="btn btn-sm btn-outline-secondary" onClick={closePanel}>
+                <button
+                  className="btn btn-sm btn-outline-secondary"
+                  onClick={closePanel}
+                >
                   <i className="bi bi-x-lg"></i>
                 </button>
               </div>
 
-              <form onSubmit={panel === "add" ? handleAdd : handleEdit} noValidate>
-
+              <form
+                onSubmit={panel === "add" ? handleAdd : handleEdit}
+                noValidate
+              >
                 {/* Customer Name — locked in edit */}
                 <div className="mb-2">
                   <label className="form-label panel-label">
@@ -463,7 +524,9 @@ export default function Customer() {
                     placeholder="Enter Customer Name"
                   />
                   {fieldErrors.customername && (
-                    <div className="invalid-feedback">{fieldErrors.customername}</div>
+                    <div className="invalid-feedback">
+                      {fieldErrors.customername}
+                    </div>
                   )}
                 </div>
 
@@ -476,12 +539,16 @@ export default function Customer() {
                     <select
                       className="form-select form-select-sm"
                       value={form.customertype}
-                      onChange={(e) => setForm({ ...form, customertype: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, customertype: e.target.value })
+                      }
                       required
                     >
                       <option value="">-- Select Type --</option>
                       {custTypes.map((t) => (
-                        <option key={t} value={t}>{t}</option>
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
                       ))}
                     </select>
                   ) : (
@@ -504,12 +571,16 @@ export default function Customer() {
                     <select
                       className="form-select form-select-sm"
                       value={form.customercountry}
-                      onChange={(e) => setForm({ ...form, customercountry: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, customercountry: e.target.value })
+                      }
                       required
                     >
                       <option value="">-- Select Country --</option>
                       {countries.map((c) => (
-                        <option key={c} value={c}>{c}</option>
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
                       ))}
                     </select>
                   ) : (
@@ -530,7 +601,9 @@ export default function Customer() {
                     className="form-control form-control-sm"
                     rows={2}
                     value={form.Address}
-                    onChange={(e) => setForm({ ...form, Address: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, Address: e.target.value })
+                    }
                     maxLength={250}
                     placeholder="Enter Address"
                   />
@@ -543,7 +616,9 @@ export default function Customer() {
                     type="text"
                     className="form-control form-control-sm"
                     value={form.Location}
-                    onChange={(e) => setForm({ ...form, Location: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, Location: e.target.value })
+                    }
                     placeholder="e.g. Chennai"
                     maxLength={50}
                   />
@@ -557,7 +632,9 @@ export default function Customer() {
                       type="text"
                       className="form-control form-control-sm"
                       value={form.City}
-                      onChange={(e) => setForm({ ...form, City: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, City: e.target.value })
+                      }
                       placeholder="City"
                       maxLength={50}
                     />
@@ -568,7 +645,9 @@ export default function Customer() {
                       type="text"
                       className="form-control form-control-sm"
                       value={form.State}
-                      onChange={(e) => setForm({ ...form, State: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, State: e.target.value })
+                      }
                       placeholder="State"
                       maxLength={50}
                     />
@@ -583,7 +662,9 @@ export default function Customer() {
                       type="text"
                       className="form-control form-control-sm"
                       value={form.Region}
-                      onChange={(e) => setForm({ ...form, Region: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, Region: e.target.value })
+                      }
                       placeholder="Region"
                       maxLength={50}
                     />
@@ -594,7 +675,9 @@ export default function Customer() {
                       type="text"
                       className="form-control form-control-sm"
                       value={form.SubRegion}
-                      onChange={(e) => setForm({ ...form, SubRegion: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, SubRegion: e.target.value })
+                      }
                       placeholder="Sub Region"
                       maxLength={50}
                     />
@@ -608,7 +691,9 @@ export default function Customer() {
                     type="text"
                     className="form-control form-control-sm"
                     value={form.Category}
-                    onChange={(e) => setForm({ ...form, Category: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, Category: e.target.value })
+                    }
                     placeholder="e.g. OEM"
                     maxLength={45}
                     list="category-suggestions"
@@ -627,7 +712,9 @@ export default function Customer() {
                     type="text"
                     className="form-control form-control-sm"
                     value={form.Shortname}
-                    onChange={(e) => setForm({ ...form, Shortname: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, Shortname: e.target.value })
+                    }
                     placeholder="Short Name"
                     maxLength={90}
                   />
@@ -654,7 +741,9 @@ export default function Customer() {
                     {loading ? (
                       <span className="spinner-border spinner-border-sm me-1"></span>
                     ) : (
-                      <i className={`bi ${panel === "add" ? "bi-check-circle" : "bi-pencil-square"} me-1`}></i>
+                      <i
+                        className={`bi ${panel === "add" ? "bi-check-circle" : "bi-pencil-square"} me-1`}
+                      ></i>
                     )}
                     {panel === "add" ? "Save" : "Update"}
                   </button>
@@ -683,7 +772,9 @@ export default function Customer() {
             <p className="mb-4">
               Do you want to make the Customer{" "}
               <strong>
-                {confirmModal.currentStatus === "Active" ? "Inactive" : "Active"}
+                {confirmModal.currentStatus === "Active"
+                  ? "Inactive"
+                  : "Active"}
               </strong>
               ?
             </p>

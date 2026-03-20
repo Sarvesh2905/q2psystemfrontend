@@ -19,7 +19,7 @@ export default function StatusMaster() {
   const [filtered, setFiltered] = useState([]);
   const [page, setPage] = useState(1);
   const [searchVal, setSearchVal] = useState("");
-  const [panel, setPanel] = useState(null); // 'add' | 'edit' | null
+  const [panel, setPanel] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [editSno, setEditSno] = useState(null);
   const [editDataLocked, setEditDataLocked] = useState("");
@@ -60,11 +60,20 @@ export default function StatusMaster() {
     setTimeout(() => setAlert({ msg: "", type: "" }), 4500);
   };
 
-  // ── Search ───────────────────────────────────────────────────────────────
-  const handleSearch = () => {
-    const q = searchVal.trim().toLowerCase();
+  // ── Live Search ───────────────────────────────────────────────────────────
+  const handleLiveSearch = (e) => {
+    const val = e.target.value;
+    setSearchVal(val);
+    const q = val.trim().toLowerCase();
     setFiltered(
-      allData.filter((row) => !q || (row.Data || "").toLowerCase().includes(q)),
+      !q
+        ? allData
+        : allData.filter(
+            (row) =>
+              (row.Data || "").toLowerCase().includes(q) ||
+              (row.Description || "").toLowerCase().includes(q) ||
+              (row.Status || "").toLowerCase().includes(q),
+          ),
     );
     setPage(1);
   };
@@ -97,7 +106,7 @@ export default function StatusMaster() {
       return;
     }
     setEditSno(row.Sno);
-    setEditDataLocked(row.Data); // Data is LOCKED — cannot be changed
+    setEditDataLocked(row.Data);
     setForm({ Data: row.Data, Description: row.Description || "" });
     setDupError("");
     setAlert({ msg: "", type: "" });
@@ -217,8 +226,8 @@ export default function StatusMaster() {
           </div>
         )}
 
-        {/* Toolbar */}
-        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-end gap-2">
+        {/* ── Live Search Toolbar ───────────────────────────────────── */}
+        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-center gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
               Status
@@ -229,25 +238,18 @@ export default function StatusMaster() {
               style={{ width: "220px" }}
               placeholder="Search by Status..."
               value={searchVal}
-              onChange={(e) => setSearchVal(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              onChange={handleLiveSearch}
             />
           </div>
-          <div className="d-flex gap-2 align-items-end">
+          {searchVal && (
             <button
-              className="btn btn-sm btn-primary-custom"
-              onClick={handleSearch}
-            >
-              <i className="bi bi-search me-1"></i>Search
-            </button>
-            <button
-              className="btn btn-sm btn-outline-secondary"
+              className="btn btn-sm btn-outline-secondary align-self-end"
               onClick={handleClear}
             >
               <i className="bi bi-x-circle me-1"></i>Clear
             </button>
-          </div>
-          <div className="ms-auto d-flex align-items-end gap-2">
+          )}
+          <div className="ms-auto d-flex align-items-center gap-2">
             <span className="text-muted" style={{ fontSize: "0.82rem" }}>
               Records: <strong>{filtered.length}</strong>
             </span>

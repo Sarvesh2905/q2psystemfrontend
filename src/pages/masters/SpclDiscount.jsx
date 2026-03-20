@@ -69,11 +69,19 @@ export default function SpclDiscount() {
     setTimeout(() => setAlert({ msg: "", type: "" }), 4500);
   };
 
-  // ── Search by Name ────────────────────────────────────────────────────────
-  const handleSearch = () => {
-    const n = searchName.trim().toLowerCase();
+  // ── Live Search ───────────────────────────────────────────────────────────
+  const handleLiveSearch = (e) => {
+    const val = e.target.value;
+    setSearchName(val);
+    const q = val.trim().toLowerCase();
     setFiltered(
-      allData.filter((row) => !n || (row.Name || "").toLowerCase().includes(n)),
+      !q
+        ? allData
+        : allData.filter(
+            (row) =>
+              (row.Name || "").toLowerCase().includes(q) ||
+              (row.status || "").toLowerCase().includes(q),
+          ),
     );
     setPage(1);
   };
@@ -102,7 +110,7 @@ export default function SpclDiscount() {
     setDupError("");
   };
 
-  // ── Duplicate check fires on name select change (same as original) ────────
+  // ── Duplicate check ───────────────────────────────────────────────────────
   const checkDuplicate = async (custname) => {
     if (!custname) return;
     try {
@@ -200,8 +208,8 @@ export default function SpclDiscount() {
           </div>
         )}
 
-        {/* ── Toolbar ──────────────────────────────────────────────── */}
-        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-end gap-2">
+        {/* ── Live Search Toolbar ───────────────────────────────────── */}
+        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-center gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
               Name
@@ -212,25 +220,18 @@ export default function SpclDiscount() {
               style={{ width: "220px" }}
               placeholder="Search by Name..."
               value={searchName}
-              onChange={(e) => setSearchName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              onChange={handleLiveSearch}
             />
           </div>
-          <div className="d-flex gap-2 align-items-end">
+          {searchName && (
             <button
-              className="btn btn-sm btn-primary-custom"
-              onClick={handleSearch}
-            >
-              <i className="bi bi-search me-1"></i>Search
-            </button>
-            <button
-              className="btn btn-sm btn-outline-secondary"
+              className="btn btn-sm btn-outline-secondary align-self-end"
               onClick={handleClear}
             >
               <i className="bi bi-x-circle me-1"></i>Clear
             </button>
-          </div>
-          <div className="ms-auto d-flex align-items-end gap-2">
+          )}
+          <div className="ms-auto d-flex align-items-center gap-2">
             <span className="text-muted" style={{ fontSize: "0.82rem" }}>
               Records: <strong>{filtered.length}</strong>
             </span>

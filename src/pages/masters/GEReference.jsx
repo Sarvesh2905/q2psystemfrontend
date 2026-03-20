@@ -53,7 +53,8 @@ export default function GEReference() {
     try {
       const { data } = await axios.get(API, { headers });
       setAllData(data);
-      applyFilter(data, searchText);
+      setFiltered(data);
+      setPage(1);
     } catch {
       showAlert("Failed to load data.", "danger");
     }
@@ -68,24 +69,27 @@ export default function GEReference() {
     setTimeout(() => setAlert({ msg: "", type: "" }), 4000);
   };
 
-  // ── Search — single text filter across Customerpartno + Cftipartno ────────
-  const applyFilter = (data, text) => {
-    const t = text.trim().toLowerCase();
-    const result = t
-      ? data.filter(
-          (row) =>
-            (row.Customerpartno || "").toLowerCase().includes(t) ||
-            (row.Cftipartno || "").toLowerCase().includes(t),
-        )
-      : data;
-    setFiltered(result);
+  // ── Live Search ───────────────────────────────────────────────────────────
+  const handleLiveSearch = (e) => {
+    const val = e.target.value;
+    setSearchText(val);
+    const q = val.trim().toLowerCase();
+    setFiltered(
+      !q
+        ? allData
+        : allData.filter(
+            (row) =>
+              (row.Customerpartno || "").toLowerCase().includes(q) ||
+              (row.Cftipartno || "").toLowerCase().includes(q),
+          ),
+    );
     setPage(1);
   };
 
-  const handleSearch = () => applyFilter(allData, searchText);
   const handleClear = () => {
     setSearchText("");
-    applyFilter(allData, "");
+    setFiltered(allData);
+    setPage(1);
   };
 
   // ── Pagination ────────────────────────────────────────────────────────────
@@ -107,7 +111,7 @@ export default function GEReference() {
     }
     setForm({ Customerpartno: row.Customerpartno, Cftipartno: row.Cftipartno });
     setEditSno(row.Sno);
-    setEditCfti(row.Cftipartno); // keep locked value
+    setEditCfti(row.Cftipartno);
     setFieldErrors({});
     setAlert({ msg: "", type: "" });
     setPanel("edit");
@@ -239,8 +243,8 @@ export default function GEReference() {
           </div>
         )}
 
-        {/* ── Toolbar ──────────────────────────────────────────────── */}
-        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-end gap-2">
+        {/* ── Live Search Toolbar ───────────────────────────────────── */}
+        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-center gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
               Search (Customer PN / CFTI PN)
@@ -251,25 +255,18 @@ export default function GEReference() {
               style={{ width: "260px" }}
               placeholder="Filter by Customer PN or CFTI Part No..."
               value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              onChange={handleLiveSearch}
             />
           </div>
-          <div className="d-flex gap-2 align-items-end">
+          {searchText && (
             <button
-              className="btn btn-sm btn-primary-custom"
-              onClick={handleSearch}
-            >
-              <i className="bi bi-search me-1"></i>Search
-            </button>
-            <button
-              className="btn btn-sm btn-outline-secondary"
+              className="btn btn-sm btn-outline-secondary align-self-end"
               onClick={handleClear}
             >
               <i className="bi bi-x-circle me-1"></i>Clear
             </button>
-          </div>
-          <div className="ms-auto d-flex align-items-end gap-2">
+          )}
+          <div className="ms-auto d-flex align-items-center gap-2">
             <span className="text-muted" style={{ fontSize: "0.82rem" }}>
               Records: <strong>{filtered.length}</strong>
             </span>
@@ -494,7 +491,6 @@ export default function GEReference() {
                       const val = e.target.value.toUpperCase();
                       setForm((prev) => ({ ...prev, Customerpartno: val }));
                       clearErr();
-                      // live duplicate check (same as original — fires on cftipartno change)
                       const cfti = panel === "add" ? form.Cftipartno : editCfti;
                       if (val && cfti) checkDuplicate(val, cfti);
                     }}

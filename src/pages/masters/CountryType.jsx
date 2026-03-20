@@ -4,7 +4,7 @@ import axios from "axios";
 import DashboardNavbar from "../../components/DashboardNavbar";
 import { getAuth, isLoggedIn } from "../../utils/auth";
 
-const API = "http://localhost:5001/api/country-type"; // backend route
+const API = "http://localhost:5001/api/country-type";
 const PAGE_SIZE = 50;
 
 export default function CustomerTypeMaster() {
@@ -17,7 +17,7 @@ export default function CustomerTypeMaster() {
   const [filtered, setFiltered] = useState([]);
   const [page, setPage] = useState(1);
   const [searchVal, setSearchVal] = useState("");
-  const [panel, setPanel] = useState(null); // 'add' | null
+  const [panel, setPanel] = useState(null);
   const [addValue, setAddValue] = useState("");
   const [dupError, setDupError] = useState("");
   const [alert, setAlert] = useState({ msg: "", type: "" });
@@ -55,14 +55,19 @@ export default function CustomerTypeMaster() {
     fetchData();
   }, [fetchData]);
 
-  const handleSearch = () => {
-    const q = searchVal.trim().toLowerCase();
+  // ── Live Search ─────────────────────────────────────────────────────────────
+  const handleLiveSearch = (e) => {
+    const val = e.target.value;
+    setSearchVal(val);
+    const q = val.trim().toLowerCase();
     setFiltered(
-      allData.filter(
-        (row) => !q || (row.CustomerType || row.CountryType || "")
-          .toLowerCase()
-          .includes(q),
-      ),
+      !q
+        ? allData
+        : allData.filter((row) =>
+            [row.CustomerType || row.CountryType, row.status]
+              .map((v) => (v || "").toLowerCase())
+              .some((v) => v.includes(q)),
+          ),
     );
     setPage(1);
   };
@@ -76,9 +81,10 @@ export default function CustomerTypeMaster() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1).filter(
-    (p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2,
-  );
+  const pageNumbers = Array.from(
+    { length: totalPages },
+    (_, i) => i + 1,
+  ).filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2);
 
   const openAdd = () => {
     setAddValue("");
@@ -102,9 +108,7 @@ export default function CustomerTypeMaster() {
       );
       if (data.exists) setDupError(data.message);
       else setDupError("");
-    } catch {
-      // ignore
-    }
+    } catch {}
   };
 
   const handleAdd = async (e) => {
@@ -114,7 +118,6 @@ export default function CustomerTypeMaster() {
     try {
       const { data } = await axios.post(
         API,
-        // If backend still expects CountryType, use { CountryType: addValue }
         { CustomerType: addValue },
         { headers },
       );
@@ -174,8 +177,8 @@ export default function CustomerTypeMaster() {
           </div>
         )}
 
-        {/* Toolbar */}
-        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-end gap-2">
+        {/* ── Live Search Toolbar ───────────────────────────────────── */}
+        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-center gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
               Customer Type
@@ -186,25 +189,18 @@ export default function CustomerTypeMaster() {
               style={{ width: "220px" }}
               placeholder="Search by Customer Type..."
               value={searchVal}
-              onChange={(e) => setSearchVal(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              onChange={handleLiveSearch}
             />
           </div>
-          <div className="d-flex gap-2 align-items-end">
+          {searchVal && (
             <button
-              className="btn btn-sm btn-primary-custom"
-              onClick={handleSearch}
-            >
-              <i className="bi bi-search me-1"></i>Search
-            </button>
-            <button
-              className="btn btn-sm btn-outline-secondary"
+              className="btn btn-sm btn-outline-secondary align-self-end"
               onClick={handleClear}
             >
               <i className="bi bi-x-circle me-1"></i>Clear
             </button>
-          </div>
-          <div className="ms-auto d-flex align-items-end gap-2">
+          )}
+          <div className="ms-auto d-flex align-items-center gap-2">
             <span className="text-muted" style={{ fontSize: "0.82rem" }}>
               Records: <strong>{filtered.length}</strong>
             </span>
@@ -391,9 +387,7 @@ export default function CustomerTypeMaster() {
                   </label>
                   <input
                     type="text"
-                    className={`form-control form-control-sm ${
-                      dupError ? "is-invalid" : ""
-                    }`}
+                    className={`form-control form-control-sm ${dupError ? "is-invalid" : ""}`}
                     value={addValue}
                     onChange={(e) => {
                       const v = e.target.value.toUpperCase();

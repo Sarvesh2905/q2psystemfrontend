@@ -6,27 +6,21 @@ import { getAuth, isLoggedIn } from "../../utils/auth";
 
 const API = "http://localhost:5001/api/deptusers";
 const PAGE_SIZE = 50;
-
 const emptyForm = { deptuserid: "", Username: "", Email: "" };
 
 export default function UsersDept() {
   const navigate = useNavigate();
   const { token, user } = getAuth();
   const role = user?.role;
-
   const canEdit = role === "Admin" || role === "Manager";
 
   const [allData, setAllData] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [page, setPage] = useState(1);
-
-  // single search field
   const [searchVal, setSearchVal] = useState("");
-
-  const [panel, setPanel] = useState(null); // null | 'add' | 'edit'
+  const [panel, setPanel] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [editOrigId, setEditOrigId] = useState("");
-
   const [idError, setIdError] = useState("");
   const [alert, setAlert] = useState({ msg: "", type: "" });
   const [confirmModal, setConfirmModal] = useState({
@@ -62,33 +56,24 @@ export default function UsersDept() {
     fetchData();
   }, [fetchData]);
 
-  // ── Single search across all columns ───────────────────────────
-  const handleSearch = () => {
-    const q = searchVal.trim().toLowerCase();
-    if (!q) {
-      setFiltered(allData);
-      setPage(1);
-      return;
-    }
-
-    const result = allData.filter((row) => {
-      const id = (row.deptuserid || "").toLowerCase();
-      const name = (row.Username || "").toLowerCase();
-      const email = (row.Email || "").toLowerCase();
-      const status = (row.status || "").toLowerCase();
-      return (
-        id.includes(q) ||
-        name.includes(q) ||
-        email.includes(q) ||
-        status.includes(q)
-      );
-    });
-
-    setFiltered(result);
+  // ── Live Search ───────────────────────────────────────────────────────────
+  const handleLiveSearch = (e) => {
+    const val = e.target.value;
+    setSearchVal(val);
+    const q = val.trim().toLowerCase();
+    setFiltered(
+      !q
+        ? allData
+        : allData.filter((row) =>
+            [row.deptuserid, row.Username, row.Email, row.status]
+              .map((v) => (v || "").toLowerCase())
+              .some((v) => v.includes(q)),
+          ),
+    );
     setPage(1);
   };
 
-  const handleClearSearch = () => {
+  const handleClear = () => {
     setSearchVal("");
     setFiltered(allData);
     setPage(1);
@@ -107,7 +92,7 @@ export default function UsersDept() {
   const openEdit = (row) => {
     if (row.status === "Inactive") {
       showAlert(
-        `The Dept User "${row.deptuserid}" is Inactive and cannot be edited.`,
+        `"${row.deptuserid}" is Inactive and cannot be edited.`,
         "warning",
       );
       return;
@@ -133,9 +118,7 @@ export default function UsersDept() {
     if (!form.deptuserid) return;
     try {
       const { data } = await axios.get(
-        `${API}/check-deptuserid?deptuserid=${encodeURIComponent(
-          form.deptuserid,
-        )}`,
+        `${API}/check-deptuserid?deptuserid=${encodeURIComponent(form.deptuserid)}`,
         { headers },
       );
       setIdError(data.exists ? data.message : "");
@@ -166,10 +149,7 @@ export default function UsersDept() {
     try {
       const { data } = await axios.put(
         `${API}/${encodeURIComponent(editOrigId)}`,
-        {
-          Username: form.Username,
-          Email: form.Email,
-        },
+        { Username: form.Username, Email: form.Email },
         { headers },
       );
       showAlert(data.message, "success");
@@ -204,7 +184,6 @@ export default function UsersDept() {
   return (
     <>
       <DashboardNavbar />
-
       <div className="container-fluid px-3 py-3">
         <div className="d-flex align-items-center gap-2 mb-3">
           <button
@@ -223,13 +202,11 @@ export default function UsersDept() {
         </h5>
 
         {alert.msg && (
-          <div className={`alert alert-${alert.type} py-2`} role="alert">
-            {alert.msg}
-          </div>
+          <div className={`alert alert-${alert.type} py-2`}>{alert.msg}</div>
         )}
 
-        {/* Single search box */}
-        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-end gap-2">
+        {/* ── Live Search Toolbar ───────────────────────────────────── */}
+        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-center gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
               Search (ID / Name / Email / Status)
@@ -238,28 +215,20 @@ export default function UsersDept() {
               type="text"
               className="form-control form-control-sm"
               style={{ width: "260px" }}
-              placeholder="Type to search..."
+              placeholder="Type to filter..."
               value={searchVal}
-              onChange={(e) => setSearchVal(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              onChange={handleLiveSearch}
             />
           </div>
-          <div className="d-flex gap-2 align-items-end">
+          {searchVal && (
             <button
-              className="btn btn-sm btn-primary-custom"
-              onClick={handleSearch}
-            >
-              <i className="bi bi-search me-1"></i>Search
-            </button>
-            <button
-              className="btn btn-sm btn-outline-secondary"
-              onClick={handleClearSearch}
+              className="btn btn-sm btn-outline-secondary align-self-end"
+              onClick={handleClear}
             >
               <i className="bi bi-x-circle me-1"></i>Clear
             </button>
-          </div>
-
-          <div className="ms-auto d-flex align-items-end gap-2">
+          )}
+          <div className="ms-auto d-flex align-items-center gap-2">
             <span className="text-muted" style={{ fontSize: "0.82rem" }}>
               Records: <strong>{filtered.length}</strong>
             </span>
@@ -319,11 +288,7 @@ export default function UsersDept() {
                       <td className="text-center">
                         {canEdit ? (
                           <button
-                            className={`btn btn-xs status-btn ${
-                              row.status === "Active"
-                                ? "status-active"
-                                : "status-inactive"
-                            }`}
+                            className={`btn btn-xs status-btn ${row.status === "Active" ? "status-active" : "status-inactive"}`}
                             onClick={() =>
                               setConfirmModal({
                                 show: true,
@@ -336,11 +301,7 @@ export default function UsersDept() {
                           </button>
                         ) : (
                           <span
-                            className={`badge ${
-                              row.status === "Active"
-                                ? "bg-success"
-                                : "bg-secondary"
-                            }`}
+                            className={`badge ${row.status === "Active" ? "bg-success" : "bg-secondary"}`}
                           >
                             {row.status}
                           </span>
@@ -373,20 +334,13 @@ export default function UsersDept() {
                     .map((p, i, arr) => (
                       <>
                         {i > 0 && arr[i - 1] !== p - 1 && (
-                          <span
-                            key={`ellipsis-${p}`}
-                            className="btn btn-sm disabled"
-                          >
+                          <span key={`e${p}`} className="btn btn-sm disabled">
                             …
                           </span>
                         )}
                         <button
                           key={p}
-                          className={`btn btn-sm ${
-                            page === p
-                              ? "btn-primary-custom"
-                              : "btn-outline-secondary"
-                          }`}
+                          className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
                           onClick={() => setPage(p)}
                         >
                           {p}
@@ -413,9 +367,7 @@ export default function UsersDept() {
                   style={{ color: "#800000", fontWeight: 700 }}
                 >
                   <i
-                    className={`bi ${
-                      panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"
-                    } me-2`}
+                    className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}
                   ></i>
                   {panel === "add"
                     ? "Create Department User"
@@ -433,7 +385,6 @@ export default function UsersDept() {
                 onSubmit={panel === "add" ? handleAdd : handleEdit}
                 noValidate
               >
-                {/* ID */}
                 <div className="mb-3">
                   <label className="form-label panel-label">
                     Application Engineer ID{" "}
@@ -443,9 +394,7 @@ export default function UsersDept() {
                     <>
                       <input
                         type="text"
-                        className={`form-control form-control-sm ${
-                          idError ? "is-invalid" : ""
-                        }`}
+                        className={`form-control form-control-sm ${idError ? "is-invalid" : ""}`}
                         value={form.deptuserid}
                         onChange={(e) => {
                           setForm({ ...form, deptuserid: e.target.value });
@@ -470,7 +419,6 @@ export default function UsersDept() {
                   )}
                 </div>
 
-                {/* Name (read-only in edit mode) */}
                 <div className="mb-3">
                   <label className="form-label panel-label">
                     Application Engineer Name{" "}
@@ -498,7 +446,6 @@ export default function UsersDept() {
                   )}
                 </div>
 
-                {/* Email */}
                 <div className="mb-4">
                   <label className="form-label panel-label">
                     Email <span className="text-danger">*</span>
@@ -526,11 +473,7 @@ export default function UsersDept() {
                       <span className="spinner-border spinner-border-sm me-1"></span>
                     ) : (
                       <i
-                        className={`bi ${
-                          panel === "add"
-                            ? "bi-check-circle"
-                            : "bi-pencil-check"
-                        } me-1`}
+                        className={`bi ${panel === "add" ? "bi-check-circle" : "bi-pencil-square"} me-1`}
                       ></i>
                     )}
                     {panel === "add" ? "Save" : "Update"}
@@ -572,11 +515,7 @@ export default function UsersDept() {
               <button
                 className="btn btn-sm btn-danger"
                 onClick={() =>
-                  setConfirmModal({
-                    show: false,
-                    sno: null,
-                    currentStatus: "",
-                  })
+                  setConfirmModal({ show: false, sno: null, currentStatus: "" })
                 }
               >
                 No

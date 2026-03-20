@@ -19,7 +19,7 @@ export default function EndIndustry() {
   const [filtered, setFiltered] = useState([]);
   const [page, setPage] = useState(1);
   const [searchInd, setSearchInd] = useState("");
-  const [panel, setPanel] = useState(null); // 'add' | 'edit' | null
+  const [panel, setPanel] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [editSno, setEditSno] = useState(null);
   const [editIndustry, setEditIndustry] = useState("");
@@ -54,13 +54,19 @@ export default function EndIndustry() {
     setTimeout(() => setAlert({ msg: "", type: "" }), 4500);
   };
 
-  // ── Search by Industry ────────────────────────────────────────────────────
-  const handleSearch = () => {
-    const q = searchInd.trim().toLowerCase();
+  // ── Live Search ───────────────────────────────────────────────────────────
+  const handleLiveSearch = (e) => {
+    const val = e.target.value;
+    setSearchInd(val);
+    const q = val.trim().toLowerCase();
     setFiltered(
-      allData.filter(
-        (row) => !q || (row.Industry || "").toLowerCase().includes(q),
-      ),
+      !q
+        ? allData
+        : allData.filter((row) =>
+            [row.Industry, row.Description]
+              .map((v) => (v || "").toLowerCase())
+              .some((v) => v.includes(q)),
+          ),
     );
     setPage(1);
   };
@@ -184,8 +190,8 @@ export default function EndIndustry() {
           </div>
         )}
 
-        {/* ── Toolbar ──────────────────────────────────────────────── */}
-        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-end gap-2">
+        {/* ── Live Search Toolbar ───────────────────────────────────── */}
+        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-center gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
               Industry
@@ -196,25 +202,18 @@ export default function EndIndustry() {
               style={{ width: "220px" }}
               placeholder="Search by Industry..."
               value={searchInd}
-              onChange={(e) => setSearchInd(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              onChange={handleLiveSearch}
             />
           </div>
-          <div className="d-flex gap-2 align-items-end">
+          {searchInd && (
             <button
-              className="btn btn-sm btn-primary-custom"
-              onClick={handleSearch}
-            >
-              <i className="bi bi-search me-1"></i>Search
-            </button>
-            <button
-              className="btn btn-sm btn-outline-secondary"
+              className="btn btn-sm btn-outline-secondary align-self-end"
               onClick={handleClear}
             >
               <i className="bi bi-x-circle me-1"></i>Clear
             </button>
-          </div>
-          <div className="ms-auto d-flex align-items-end gap-2">
+          )}
+          <div className="ms-auto d-flex align-items-center gap-2">
             <span className="text-muted" style={{ fontSize: "0.82rem" }}>
               Records: <strong>{filtered.length}</strong>
             </span>

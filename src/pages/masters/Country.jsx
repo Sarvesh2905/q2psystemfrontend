@@ -25,8 +25,6 @@ export default function Country() {
   const [allData, setAllData] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [page, setPage] = useState(1);
-
-  // single search
   const [searchVal, setSearchVal] = useState("");
 
   const [panel, setPanel] = useState(null);
@@ -67,28 +65,27 @@ export default function Country() {
     fetchData();
   }, [fetchData]);
 
-  // ── Single search across ALL columns ─────────────────────────────────────
-  const handleSearch = () => {
-    const q = searchVal.trim().toLowerCase();
-    if (!q) {
-      setFiltered(allData);
-      setPage(1);
-      return;
-    }
+  // ── Live Search across ALL columns ────────────────────────────────────────
+  const handleLiveSearch = (e) => {
+    const val = e.target.value;
+    setSearchVal(val);
+    const q = val.trim().toLowerCase();
     setFiltered(
-      allData.filter((row) =>
-        [
-          row.Countrycode,
-          row.Countryname,
-          row.Region,
-          row.Currency,
-          row.CurrencyName,
-          row.Conversionrate != null ? String(row.Conversionrate) : "",
-          row.status,
-        ]
-          .map((v) => (v || "").toLowerCase())
-          .some((v) => v.includes(q)),
-      ),
+      !q
+        ? allData
+        : allData.filter((row) =>
+            [
+              row.Countrycode,
+              row.Countryname,
+              row.Region,
+              row.Currency,
+              row.CurrencyName,
+              row.Conversionrate != null ? String(row.Conversionrate) : "",
+              row.status,
+            ]
+              .map((v) => (v || "").toLowerCase())
+              .some((v) => v.includes(q)),
+          ),
     );
     setPage(1);
   };
@@ -111,7 +108,10 @@ export default function Country() {
 
   const openEdit = (row) => {
     if (row.status === "Inactive") {
-      showAlert(`"${row.Countryname}" is Inactive and cannot be edited.`, "warning");
+      showAlert(
+        `"${row.Countryname}" is Inactive and cannot be edited.`,
+        "warning",
+      );
       return;
     }
     setForm({
@@ -169,7 +169,10 @@ export default function Country() {
       closePanel();
       fetchData();
     } catch (err) {
-      showAlert(err.response?.data?.message || "Error adding country.", "danger");
+      showAlert(
+        err.response?.data?.message || "Error adding country.",
+        "danger",
+      );
     } finally {
       setLoading(false);
     }
@@ -188,7 +191,10 @@ export default function Country() {
       closePanel();
       fetchData();
     } catch (err) {
-      showAlert(err.response?.data?.message || "Error updating country.", "danger");
+      showAlert(
+        err.response?.data?.message || "Error updating country.",
+        "danger",
+      );
     } finally {
       setLoading(false);
     }
@@ -199,7 +205,11 @@ export default function Country() {
     const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
     setConfirmModal({ show: false, sno: null, currentStatus: "" });
     try {
-      await axios.patch(`${API}/toggle/${sno}`, { status: newStatus }, { headers });
+      await axios.patch(
+        `${API}/toggle/${sno}`,
+        { status: newStatus },
+        { headers },
+      );
       fetchData();
     } catch {
       showAlert("Failed to toggle status.", "danger");
@@ -212,10 +222,12 @@ export default function Country() {
     <>
       <DashboardNavbar />
       <div className="container-fluid px-3 py-3">
-
         {/* Breadcrumb */}
         <div className="d-flex align-items-center gap-2 mb-3">
-          <button className="btn btn-sm back-btn" onClick={() => navigate("/masters")}>
+          <button
+            className="btn btn-sm back-btn"
+            onClick={() => navigate("/masters")}
+          >
             <i className="bi bi-arrow-left-circle-fill me-1"></i>Back
           </button>
           <span className="text-muted" style={{ fontSize: "0.88rem" }}>
@@ -233,8 +245,8 @@ export default function Country() {
           </div>
         )}
 
-        {/* ── Single Search Toolbar ─────────────────────────────── */}
-        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-end gap-2">
+        {/* ── Live Search Toolbar ───────────────────────────────── */}
+        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-center gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
               Search (All Columns)
@@ -245,24 +257,26 @@ export default function Country() {
               style={{ width: "280px" }}
               placeholder="Search Code, Name, Region, Currency..."
               value={searchVal}
-              onChange={(e) => setSearchVal(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              onChange={handleLiveSearch}
             />
           </div>
-          <div className="d-flex gap-2 align-items-end">
-            <button className="btn btn-sm btn-primary-custom" onClick={handleSearch}>
-              <i className="bi bi-search me-1"></i>Search
-            </button>
-            <button className="btn btn-sm btn-outline-secondary" onClick={handleClear}>
+          {searchVal && (
+            <button
+              className="btn btn-sm btn-outline-secondary align-self-end"
+              onClick={handleClear}
+            >
               <i className="bi bi-x-circle me-1"></i>Clear
             </button>
-          </div>
-          <div className="ms-auto d-flex align-items-end gap-2">
+          )}
+          <div className="ms-auto d-flex align-items-center gap-2">
             <span className="text-muted" style={{ fontSize: "0.82rem" }}>
               Records: <strong>{filtered.length}</strong>
             </span>
             {canEdit && (
-              <button className="btn btn-sm btn-primary-custom" onClick={openAdd}>
+              <button
+                className="btn btn-sm btn-primary-custom"
+                onClick={openAdd}
+              >
                 <i className="bi bi-plus-circle-fill me-1"></i>Add
               </button>
             )}
@@ -271,11 +285,14 @@ export default function Country() {
 
         {/* ── Table + Panel ────────────────────────────────────────── */}
         <div className="d-flex gap-3" style={{ minHeight: "60vh" }}>
-
           {/* Table */}
           <div
             className="master-table-wrapper"
-            style={{ flex: panel ? "0 0 58%" : "1", transition: "flex 0.3s", overflowX: "auto" }}
+            style={{
+              flex: panel ? "0 0 58%" : "1",
+              transition: "flex 0.3s",
+              overflowX: "auto",
+            }}
           >
             <table className="table table-bordered table-hover master-table mb-0">
               <thead>
@@ -303,15 +320,23 @@ export default function Country() {
                       key={row.Sno}
                       onDoubleClick={() => canEdit && openEdit(row)}
                       style={{ cursor: canEdit ? "pointer" : "default" }}
-                      className={panel === "edit" && editSno === row.Sno ? "table-active" : ""}
+                      className={
+                        panel === "edit" && editSno === row.Sno
+                          ? "table-active"
+                          : ""
+                      }
                     >
                       <td>{(page - 1) * PAGE_SIZE + idx + 1}</td>
                       <td>
-                        <span className="badge bg-secondary">{row.Countrycode}</span>
+                        <span className="badge bg-secondary">
+                          {row.Countrycode}
+                        </span>
                       </td>
                       <td>{row.Countryname}</td>
                       <td>{row.Region || "—"}</td>
-                      <td><strong>{row.Currency}</strong></td>
+                      <td>
+                        <strong>{row.Currency}</strong>
+                      </td>
                       <td>{row.CurrencyName || "—"}</td>
                       <td>
                         <span className="text-monospace">
@@ -324,16 +349,24 @@ export default function Country() {
                         {canEdit ? (
                           <button
                             className={`btn btn-xs status-btn ${
-                              row.status === "Active" ? "status-active" : "status-inactive"
+                              row.status === "Active"
+                                ? "status-active"
+                                : "status-inactive"
                             }`}
                             onClick={() =>
-                              setConfirmModal({ show: true, sno: row.Sno, currentStatus: row.status })
+                              setConfirmModal({
+                                show: true,
+                                sno: row.Sno,
+                                currentStatus: row.status,
+                              })
                             }
                           >
                             {row.status}
                           </button>
                         ) : (
-                          <span className={`badge ${row.status === "Active" ? "bg-success" : "bg-secondary"}`}>
+                          <span
+                            className={`badge ${row.status === "Active" ? "bg-success" : "bg-secondary"}`}
+                          >
                             {row.status}
                           </span>
                         )}
@@ -347,7 +380,9 @@ export default function Country() {
             {/* Pagination */}
             {totalPages > 1 && (
               <div className="d-flex justify-content-between align-items-center mt-2 px-1">
-                <small className="text-muted">Page {page} of {totalPages}</small>
+                <small className="text-muted">
+                  Page {page} of {totalPages}
+                </small>
                 <div className="d-flex gap-1">
                   <button
                     className="btn btn-sm btn-outline-secondary"
@@ -357,11 +392,16 @@ export default function Country() {
                     <i className="bi bi-chevron-left"></i>
                   </button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+                    .filter(
+                      (p) =>
+                        p === 1 || p === totalPages || Math.abs(p - page) <= 2,
+                    )
                     .map((p, i, arr) => (
                       <>
                         {i > 0 && arr[i - 1] !== p - 1 && (
-                          <span key={`e${p}`} className="btn btn-sm disabled">…</span>
+                          <span key={`e${p}`} className="btn btn-sm disabled">
+                            …
+                          </span>
                         )}
                         <button
                           key={p}
@@ -388,30 +428,44 @@ export default function Country() {
           {panel && (
             <div className="master-side-panel" style={{ flex: "0 0 40%" }}>
               <div className="panel-header d-flex justify-content-between align-items-center mb-3">
-                <h6 className="mb-0" style={{ color: "#800000", fontWeight: 700 }}>
-                  <i className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}></i>
+                <h6
+                  className="mb-0"
+                  style={{ color: "#800000", fontWeight: 700 }}
+                >
+                  <i
+                    className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}
+                  ></i>
                   {panel === "add" ? "Create Country" : "Modify Country"}
                 </h6>
-                <button className="btn btn-sm btn-outline-secondary" onClick={closePanel}>
+                <button
+                  className="btn btn-sm btn-outline-secondary"
+                  onClick={closePanel}
+                >
                   <i className="bi bi-x-lg"></i>
                 </button>
               </div>
 
-              <form onSubmit={panel === "add" ? handleAdd : handleEdit} noValidate>
-
+              <form
+                onSubmit={panel === "add" ? handleAdd : handleEdit}
+                noValidate
+              >
                 {/* Country Code — locked in edit */}
                 <div className="mb-3">
                   <label className="form-label panel-label">
                     Country Code{" "}
                     {panel === "add" && <span className="text-danger">*</span>}
-                    <small className="text-muted ms-1">(3 letters, e.g. IND)</small>
+                    <small className="text-muted ms-1">
+                      (3 letters, e.g. IND)
+                    </small>
                   </label>
                   <input
                     type="text"
                     className={`form-control form-control-sm ${fieldErrors.Countrycode ? "is-invalid" : ""}`}
                     value={form.Countrycode}
                     onChange={(e) => {
-                      const v = e.target.value.toUpperCase().replace(/[^A-Z]/g, "");
+                      const v = e.target.value
+                        .toUpperCase()
+                        .replace(/[^A-Z]/g, "");
                       setForm({ ...form, Countrycode: v });
                       clearErr("Countrycode");
                     }}
@@ -423,7 +477,9 @@ export default function Country() {
                     placeholder="e.g. IND"
                   />
                   {fieldErrors.Countrycode && (
-                    <div className="invalid-feedback">{fieldErrors.Countrycode}</div>
+                    <div className="invalid-feedback">
+                      {fieldErrors.Countrycode}
+                    </div>
                   )}
                 </div>
 
@@ -438,7 +494,10 @@ export default function Country() {
                     className="form-control form-control-sm"
                     value={form.Countryname}
                     onChange={(e) =>
-                      setForm({ ...form, Countryname: e.target.value.toUpperCase() })
+                      setForm({
+                        ...form,
+                        Countryname: e.target.value.toUpperCase(),
+                      })
                     }
                     readOnly={panel === "edit"}
                     style={panel === "edit" ? lockedStyle : {}}
@@ -455,7 +514,9 @@ export default function Country() {
                     type="text"
                     className="form-control form-control-sm"
                     value={form.Region}
-                    onChange={(e) => setForm({ ...form, Region: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, Region: e.target.value })
+                    }
                     maxLength={60}
                     placeholder="e.g. South Asia"
                   />
@@ -466,14 +527,18 @@ export default function Country() {
                   <label className="form-label panel-label">
                     Currency Code{" "}
                     {panel === "add" && <span className="text-danger">*</span>}
-                    <small className="text-muted ms-1">(3 letters, e.g. INR)</small>
+                    <small className="text-muted ms-1">
+                      (3 letters, e.g. INR)
+                    </small>
                   </label>
                   <input
                     type="text"
                     className="form-control form-control-sm"
                     value={form.Currency}
                     onChange={(e) => {
-                      const v = e.target.value.toUpperCase().replace(/[^A-Z]/g, "");
+                      const v = e.target.value
+                        .toUpperCase()
+                        .replace(/[^A-Z]/g, "");
                       setForm({ ...form, Currency: v });
                     }}
                     readOnly={panel === "edit"}
@@ -486,12 +551,16 @@ export default function Country() {
 
                 {/* Currency Name — locked in edit */}
                 <div className="mb-3">
-                  <label className="form-label panel-label">Currency Name</label>
+                  <label className="form-label panel-label">
+                    Currency Name
+                  </label>
                   <input
                     type="text"
                     className="form-control form-control-sm"
                     value={form.CurrencyName}
-                    onChange={(e) => setForm({ ...form, CurrencyName: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, CurrencyName: e.target.value })
+                    }
                     readOnly={panel === "edit"}
                     style={panel === "edit" ? lockedStyle : {}}
                     maxLength={60}
@@ -508,7 +577,9 @@ export default function Country() {
                     type="number"
                     className="form-control form-control-sm"
                     value={form.Conversionrate}
-                    onChange={(e) => setForm({ ...form, Conversionrate: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, Conversionrate: e.target.value })
+                    }
                     required
                     step="any"
                     min="0"
@@ -528,7 +599,9 @@ export default function Country() {
                     {loading ? (
                       <span className="spinner-border spinner-border-sm me-1"></span>
                     ) : (
-                      <i className={`bi ${panel === "add" ? "bi-check-circle" : "bi-pencil-square"} me-1`}></i>
+                      <i
+                        className={`bi ${panel === "add" ? "bi-check-circle" : "bi-pencil-square"} me-1`}
+                      ></i>
                     )}
                     {panel === "add" ? "Save" : "Update"}
                   </button>
@@ -557,15 +630,21 @@ export default function Country() {
             <p className="mb-4">
               Do you want to make the Country{" "}
               <strong>
-                {confirmModal.currentStatus === "Active" ? "Inactive" : "Active"}
+                {confirmModal.currentStatus === "Active"
+                  ? "Inactive"
+                  : "Active"}
               </strong>
               ?
             </p>
             <div className="d-flex gap-2 justify-content-end">
-              <button className="btn btn-sm btn-success" onClick={handleToggle}>Yes</button>
+              <button className="btn btn-sm btn-success" onClick={handleToggle}>
+                Yes
+              </button>
               <button
                 className="btn btn-sm btn-danger"
-                onClick={() => setConfirmModal({ show: false, sno: null, currentStatus: "" })}
+                onClick={() =>
+                  setConfirmModal({ show: false, sno: null, currentStatus: "" })
+                }
               >
                 No
               </button>

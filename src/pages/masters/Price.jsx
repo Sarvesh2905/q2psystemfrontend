@@ -8,7 +8,12 @@ const API = "http://localhost:5001/api/price";
 const LTSA_API = "http://localhost:5001/api/ltsaprice";
 const PAGE_SIZE = 50;
 
-const emptyForm = {
+const generateLtsaCode = () => {
+  const num = Math.floor(10 + Math.random() * 90);
+  return `LTSA_GE${num}`;
+};
+
+const emptyStandardForm = {
   LTSACode: "DEFAULT00",
   Customerpartno: "",
   Cftipartno: "",
@@ -21,6 +26,21 @@ const emptyForm = {
   DeliveryTerm: "",
   SPLCond: "",
   Remarks: "",
+  Product: "",
+  Market: "FM",
+};
+
+const emptyLtsaForm = {
+  LTSACode: "",
+  Customerpartno: "",
+  Cftipartno: "",
+  Description: "",
+  ListPrice: "",
+  StartDate: "",
+  ExpDate: "",
+  Curr: "USD",
+  Leadtime: "",
+  DeliveryTerm: "",
   Product: "",
   Market: "FM",
 };
@@ -38,7 +58,7 @@ export default function Price() {
   const [page, setPage] = useState(1);
   const [searchVal, setSearchVal] = useState("");
   const [panel, setPanel] = useState(null);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(emptyStandardForm);
   const [editSno, setEditSno] = useState(null);
   const [openQuoteWarning, setOpenQuoteWarning] = useState("");
   const [options, setOptions] = useState({
@@ -68,13 +88,39 @@ export default function Price() {
       .catch(() => {});
   }, []);
 
+  const showAlert = (msg, type) => {
+    setAlert({ msg, type });
+    setTimeout(() => setAlert({ msg: "", type: "" }), 4500);
+  };
+
+  const applyFilter = (data, q) => {
+    const ql = (q || "").trim().toLowerCase();
+    setFiltered(
+      !ql
+        ? data
+        : data.filter((row) =>
+            [
+              row.Cftipartno,
+              row.LTSACode,
+              row.Customerpartno,
+              row.Description,
+              row.Product,
+              row.Market,
+              row.status,
+            ]
+              .map((v) => (v || "").toLowerCase())
+              .some((v) => v.includes(ql)),
+          ),
+    );
+    setPage(1);
+  };
+
   const fetchData = useCallback(async () => {
     try {
       const url = isLtsa ? LTSA_API : API;
       const { data } = await axios.get(url, { headers });
       setAllData(data);
-      applySearch(data, searchVal);
-      setPage(1);
+      applyFilter(data, searchVal);
     } catch {
       showAlert("Failed to load data.", "danger");
     }
@@ -84,31 +130,16 @@ export default function Price() {
     fetchData();
   }, [fetchData]);
 
-  const showAlert = (msg, type) => {
-    setAlert({ msg, type });
-    setTimeout(() => setAlert({ msg: "", type: "" }), 4500);
+  // ── Live Search ───────────────────────────────────────────────────────────
+  const handleLiveSearch = (e) => {
+    const val = e.target.value;
+    setSearchVal(val);
+    applyFilter(allData, val);
   };
 
-  const applySearch = (data, q) => {
-    const ql = (q || "").trim().toLowerCase();
-    setFiltered(
-      !ql
-        ? data
-        : data.filter(
-            (row) =>
-              (row.Cftipartno || "").toLowerCase().includes(ql) ||
-              (row.LTSACode || "").toLowerCase().includes(ql) ||
-              (row.Customerpartno || "").toLowerCase().includes(ql) ||
-              (row.Description || "").toLowerCase().includes(ql),
-          ),
-    );
-    setPage(1);
-  };
-
-  const handleSearch = () => applySearch(allData, searchVal);
   const handleClear = () => {
     setSearchVal("");
-    applySearch(allData, "");
+    applyFilter(allData, "");
   };
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
@@ -119,14 +150,18 @@ export default function Price() {
   ).filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2);
 
   const openAdd = () => {
-    setForm(emptyForm);
+    if (isLtsa) {
+      setForm({ ...emptyLtsaForm, LTSACode: generateLtsaCode() });
+    } else {
+      setForm(emptyStandardForm);
+    }
     setOpenQuoteWarning("");
     setPanel("add");
   };
 
   const closePanel = () => {
     setPanel(null);
-    setForm(emptyForm);
+    setForm(emptyStandardForm);
     setEditSno(null);
     setOpenQuoteWarning("");
   };
@@ -155,7 +190,7 @@ export default function Price() {
 
     setEditSno(row.Sno);
     setForm({
-      LTSACode: row.LTSACode || "DEFAULT00",
+      LTSACode: row.LTSACode || (isLtsa ? "" : "DEFAULT00"),
       Customerpartno: row.Customerpartno || "",
       Cftipartno: row.Cftipartno || "",
       Description: row.Description || "",
@@ -178,16 +213,26 @@ export default function Price() {
     setLoading(true);
     try {
       const url = isLtsa ? LTSA_API : API;
-      const payload = isLtsa ? { ...form, SplPrice: form.ListPrice } : form;
+      const payload = isLtsa
+        ? { ...form, SplPrice: form.ListPrice }
+        : { ...form, LTSACode: "DEFAULT00" };
       const { data } = await axios.post(url, payload, { headers });
       showAlert(data.message, "success");
       closePanel();
       fetchData();
     } catch (err) {
-      showAlert(
-        err.response?.data?.message || "Error adding record.",
-        "danger",
-      );
+      if (isLtsa && err.response?.data?.message?.includes("already exists")) {
+        setForm((prev) => ({ ...prev, LTSACode: generateLtsaCode() }));
+        showAlert(
+          "Code conflict — new code generated. Please Save again.",
+          "warning",
+        );
+      } else {
+        showAlert(
+          err.response?.data?.message || "Error adding record.",
+          "danger",
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -237,7 +282,7 @@ export default function Price() {
 
   const handleDownload = async () => {
     if (!canDownload) {
-      showAlert("Access denied. Only Admin/Manager can download.", "danger");
+      showAlert("Access denied.", "danger");
       return;
     }
     try {
@@ -248,10 +293,9 @@ export default function Price() {
       });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      const today = new Date().toISOString().split("T")[0];
       link.download = isLtsa
-        ? `ltsa_price_${today}.xlsx`
-        : `standard_price_${today}.xlsx`;
+        ? `ltsa_price_${new Date().toISOString().split("T")[0]}.xlsx`
+        : `standard_price_${new Date().toISOString().split("T")[0]}.xlsx`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -261,11 +305,12 @@ export default function Price() {
     }
   };
 
+  const lockedStyle = { background: "#f0f0f0" };
+
   return (
     <>
       <DashboardNavbar />
       <div className="container-fluid px-3 py-3">
-        {/* Breadcrumb */}
         <div className="d-flex align-items-center gap-2 mb-3">
           <button
             className="btn btn-sm back-btn"
@@ -282,11 +327,8 @@ export default function Price() {
           <i className="bi bi-currency-dollar me-2"></i>Price Master
         </h5>
 
-        {/* Alert */}
         {alert.msg && (
-          <div className={`alert alert-${alert.type} py-2`} role="alert">
-            {alert.msg}
-          </div>
+          <div className={`alert alert-${alert.type} py-2`}>{alert.msg}</div>
         )}
 
         {/* LTSA Toggle */}
@@ -316,57 +358,42 @@ export default function Price() {
           </div>
         </div>
 
-        {/* Toolbar */}
-        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-end gap-2">
+        {/* ── Live Search Toolbar ───────────────────────────────── */}
+        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-center gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
-              Search (CFTI PN / LTSA Code / Description)
+              Search (CFTI PN / LTSA Code / Description / Product)
             </label>
             <input
               type="text"
               className="form-control form-control-sm"
-              style={{ width: "280px" }}
-              placeholder="Search..."
+              style={{ width: "300px" }}
+              placeholder="Type to filter..."
               value={searchVal}
-              onChange={(e) => setSearchVal(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              onChange={handleLiveSearch}
             />
           </div>
-          <div className="d-flex gap-2 align-items-end">
+          {searchVal && (
             <button
-              className="btn btn-sm btn-primary-custom"
-              onClick={handleSearch}
-            >
-              <i className="bi bi-search me-1"></i>Search
-            </button>
-            <button
-              className="btn btn-sm btn-outline-secondary"
+              className="btn btn-sm btn-outline-secondary align-self-end"
               onClick={handleClear}
             >
               <i className="bi bi-x-circle me-1"></i>Clear
             </button>
-          </div>
-          <div className="ms-auto d-flex align-items-end gap-2 flex-wrap">
+          )}
+          <div className="ms-auto d-flex align-items-center gap-2 flex-wrap">
             <span className="text-muted" style={{ fontSize: "0.82rem" }}>
               Records: <strong>{filtered.length}</strong>
             </span>
-
-            {/* Download — Admin/Manager only */}
             {canDownload && (
               <button
                 className="btn btn-sm btn-outline-secondary"
                 onClick={handleDownload}
-                title={
-                  isLtsa
-                    ? "Download LTSA Price Data"
-                    : "Download Standard Price Data"
-                }
               >
                 <i className="bi bi-download me-1"></i>
                 {allData.length > 0 ? "Download Data" : "Download Template"}
               </button>
             )}
-
             {canEdit && (
               <button
                 className="btn btn-sm btn-primary-custom"
@@ -434,11 +461,11 @@ export default function Price() {
                           className="badge"
                           style={{ background: "#1976d2", fontSize: "0.75rem" }}
                         >
-                          {row.LTSACode || "—"}
+                          {row.LTSACode || "---"}
                         </span>
                       </td>
                       <td style={{ fontSize: "0.82rem" }}>
-                        {row.Customerpartno || "—"}
+                        {row.Customerpartno || "---"}
                       </td>
                       <td>
                         <span
@@ -458,10 +485,10 @@ export default function Price() {
                         ).toFixed(2)}
                       </td>
                       <td style={{ fontSize: "0.8rem" }}>
-                        {row.StartDate ? row.StartDate.split("T")[0] : "—"}
+                        {row.StartDate ? row.StartDate.split("T")[0] : "---"}
                       </td>
                       <td style={{ fontSize: "0.8rem" }}>
-                        {row.ExpDate ? row.ExpDate.split("T")[0] : "—"}
+                        {row.ExpDate ? row.ExpDate.split("T")[0] : "---"}
                       </td>
                       <td>
                         <span
@@ -495,11 +522,7 @@ export default function Price() {
                       {canEdit && (
                         <td className="text-center">
                           <button
-                            className={`btn btn-xs ${
-                              row.status === "Active"
-                                ? "btn-outline-success"
-                                : "btn-outline-secondary"
-                            }`}
+                            className={`btn btn-xs ${row.status === "Active" ? "btn-outline-success" : "btn-outline-secondary"}`}
                             style={{ fontSize: "0.72rem", padding: "2px 7px" }}
                             onClick={() =>
                               setConfirmModal({
@@ -520,7 +543,6 @@ export default function Price() {
               </tbody>
             </table>
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="d-flex justify-content-center align-items-center gap-1 mt-2 flex-wrap">
                 <button
@@ -533,14 +555,10 @@ export default function Price() {
                 {pageNumbers.map((p, i) => (
                   <span key={i}>
                     {i > 0 && pageNumbers[i - 1] !== p - 1 && (
-                      <span className="px-1 text-muted">…</span>
+                      <span className="px-1 text-muted">...</span>
                     )}
                     <button
-                      className={`btn btn-sm ${
-                        p === page
-                          ? "btn-primary-custom"
-                          : "btn-outline-secondary"
-                      }`}
+                      className={`btn btn-sm ${p === page ? "btn-primary-custom" : "btn-outline-secondary"}`}
                       onClick={() => setPage(p)}
                     >
                       {p}
@@ -558,7 +576,7 @@ export default function Price() {
             )}
           </div>
 
-          {/* Add / Edit Side Panel */}
+          {/* Side Panel */}
           {panel && (
             <div
               className="master-edit-panel"
@@ -567,9 +585,7 @@ export default function Price() {
               <div className="d-flex justify-content-between align-items-center mb-3">
                 <h6 className="fw-bold mb-0" style={{ color: "#8B0000" }}>
                   <i
-                    className={`bi bi-${
-                      panel === "add" ? "plus-circle" : "pencil-square"
-                    } me-2`}
+                    className={`bi bi-${panel === "add" ? "plus-circle" : "pencil-square"} me-2`}
                   ></i>
                   {panel === "add" ? "Create Price Entry" : "Edit Price Entry"}
                 </h6>
@@ -592,20 +608,23 @@ export default function Price() {
 
               <form onSubmit={panel === "add" ? handleAdd : handleEdit}>
                 <div className="row g-2">
+                  {/* LTSA Code */}
                   <div className="col-6">
                     <label className="form-label form-label-sm">
-                      LTSA Code
+                      LTSA Code <span className="text-danger">*</span>
+                      {isLtsa && panel === "add" && (
+                        <small className="text-muted ms-1">
+                          (Auto-generated)
+                        </small>
+                      )}
                     </label>
                     <input
                       type="text"
                       className="form-control form-control-sm"
                       value={form.LTSACode}
-                      onChange={(e) =>
-                        panel === "add" &&
-                        setForm((f) => ({ ...f, LTSACode: e.target.value }))
-                      }
-                      readOnly={panel === "edit"}
-                      style={panel === "edit" ? { background: "#f0f0f0" } : {}}
+                      readOnly
+                      style={lockedStyle}
+                      required
                     />
                   </div>
 
@@ -625,7 +644,7 @@ export default function Price() {
                         }))
                       }
                       readOnly={panel === "edit"}
-                      style={panel === "edit" ? { background: "#f0f0f0" } : {}}
+                      style={panel === "edit" ? lockedStyle : {}}
                     />
                   </div>
 
@@ -643,7 +662,7 @@ export default function Price() {
                       }
                       required
                       readOnly={panel === "edit"}
-                      style={panel === "edit" ? { background: "#f0f0f0" } : {}}
+                      style={panel === "edit" ? lockedStyle : {}}
                       placeholder="e.g. RGL-001"
                     />
                   </div>
@@ -682,7 +701,7 @@ export default function Price() {
                       }
                       required
                       readOnly={panel === "edit"}
-                      style={panel === "edit" ? { background: "#f0f0f0" } : {}}
+                      style={panel === "edit" ? lockedStyle : {}}
                     />
                   </div>
 
@@ -703,7 +722,7 @@ export default function Price() {
                       }
                       required
                       readOnly={panel === "edit"}
-                      style={panel === "edit" ? { background: "#f0f0f0" } : {}}
+                      style={panel === "edit" ? lockedStyle : {}}
                     />
                   </div>
 
@@ -721,7 +740,7 @@ export default function Price() {
                       }
                       required
                       readOnly={panel === "edit"}
-                      style={panel === "edit" ? { background: "#f0f0f0" } : {}}
+                      style={panel === "edit" ? lockedStyle : {}}
                     />
                   </div>
 
@@ -750,9 +769,7 @@ export default function Price() {
                       required={panel === "add"}
                       disabled={panel === "edit" && !!openQuoteWarning}
                       style={
-                        panel === "edit" && openQuoteWarning
-                          ? { background: "#f0f0f0" }
-                          : {}
+                        panel === "edit" && openQuoteWarning ? lockedStyle : {}
                       }
                     >
                       <option value="">-- Select Lead Time --</option>
@@ -777,9 +794,7 @@ export default function Price() {
                       required={panel === "add"}
                       disabled={panel === "edit" && !!openQuoteWarning}
                       style={
-                        panel === "edit" && openQuoteWarning
-                          ? { background: "#f0f0f0" }
-                          : {}
+                        panel === "edit" && openQuoteWarning ? lockedStyle : {}
                       }
                     >
                       <option value="">-- Select Delivery Term --</option>
@@ -804,7 +819,7 @@ export default function Price() {
                       }
                       required
                       disabled={panel === "edit"}
-                      style={panel === "edit" ? { background: "#f0f0f0" } : {}}
+                      style={panel === "edit" ? lockedStyle : {}}
                     >
                       <option value="">-- Select Product --</option>
                       {options.products.map((p) => (
@@ -828,7 +843,7 @@ export default function Price() {
                       }
                       required
                       disabled={panel === "edit"}
-                      style={panel === "edit" ? { background: "#f0f0f0" } : {}}
+                      style={panel === "edit" ? lockedStyle : {}}
                     >
                       <option value="FM">FM</option>
                       <option value="AM">AM</option>
@@ -935,14 +950,6 @@ export default function Price() {
                   : "Active"}
               </strong>
               ?
-              {confirmModal.currentStatus === "Active" && (
-                <span
-                  className="d-block text-muted mt-1"
-                  style={{ fontSize: "0.8rem" }}
-                >
-                  Inactive records cannot be edited.
-                </span>
-              )}
             </p>
             <div className="d-flex gap-2">
               <button

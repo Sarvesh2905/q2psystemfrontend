@@ -36,7 +36,7 @@ export default function TimelineTarget() {
   const [filtered, setFiltered] = useState([]);
   const [page, setPage] = useState(1);
   const [searchVal, setSearchVal] = useState("");
-  const [panel, setPanel] = useState(null); // 'add' | 'edit' | null
+  const [panel, setPanel] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [editSno, setEditSno] = useState(null);
   const [editProductLocked, setEditProductLocked] = useState("");
@@ -52,7 +52,7 @@ export default function TimelineTarget() {
     if (!isLoggedIn()) navigate("/login", { replace: true });
   }, []);
 
-  // ── Fetch table data ────────────────────────────────────────────────────────
+  // ── Fetch table data ──────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     try {
       const { data } = await axios.get(API, { headers });
@@ -68,7 +68,7 @@ export default function TimelineTarget() {
     fetchData();
   }, [fetchData]);
 
-  // ── Fetch available products (not yet in timelinetarget) ───────────────────
+  // ── Fetch available products ───────────────────────────────────────────────
   const fetchAvailProducts = useCallback(async () => {
     try {
       const { data } = await axios.get(`${API}/available-products`, {
@@ -83,13 +83,17 @@ export default function TimelineTarget() {
     setTimeout(() => setAlert({ msg: "", type: "" }), 4500);
   };
 
-  // ── Search ──────────────────────────────────────────────────────────────────
-  const handleSearch = () => {
-    const q = searchVal.trim().toLowerCase();
+  // ── Live Search ───────────────────────────────────────────────────────────
+  const handleLiveSearch = (e) => {
+    const val = e.target.value;
+    setSearchVal(val);
+    const q = val.trim().toLowerCase();
     setFiltered(
-      allData.filter(
-        (row) => !q || (row.Product || "").toLowerCase().includes(q),
-      ),
+      !q
+        ? allData
+        : allData.filter((row) =>
+            (row.Product || "").toLowerCase().includes(q),
+          ),
     );
     setPage(1);
   };
@@ -100,11 +104,16 @@ export default function TimelineTarget() {
     setPage(1);
   };
 
-  // ── Pagination ──────────────────────────────────────────────────────────────
+  // ── Pagination ────────────────────────────────────────────────────────────
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  // ── Panel helpers ────────────────────────────────────────────────────────────
+  const pageNumbers = Array.from(
+    { length: totalPages },
+    (_, i) => i + 1,
+  ).filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2);
+
+  // ── Panel helpers ──────────────────────────────────────────────────────────
   const openAdd = async () => {
     await fetchAvailProducts();
     setForm(emptyForm);
@@ -141,7 +150,7 @@ export default function TimelineTarget() {
     setEditProductLocked("");
   };
 
-  // ── Validate numeric fields ─────────────────────────────────────────────────
+  // ── Validate numeric fields ────────────────────────────────────────────────
   const validateNumerics = (f) => {
     const errs = {};
     NUMERIC_FIELDS.forEach(({ key, label }) => {
@@ -153,7 +162,7 @@ export default function TimelineTarget() {
     return errs;
   };
 
-  // ── ADD ─────────────────────────────────────────────────────────────────────
+  // ── ADD ───────────────────────────────────────────────────────────────────
   const handleAdd = async (e) => {
     e.preventDefault();
     if (dupError) return;
@@ -162,7 +171,6 @@ export default function TimelineTarget() {
       setFormErrors(errs);
       return;
     }
-
     setLoading(true);
     try {
       const { data } = await axios.post(API, form, { headers });
@@ -179,7 +187,7 @@ export default function TimelineTarget() {
     }
   };
 
-  // ── EDIT ────────────────────────────────────────────────────────────────────
+  // ── EDIT ──────────────────────────────────────────────────────────────────
   const handleEdit = async (e) => {
     e.preventDefault();
     const errs = validateNumerics(form);
@@ -187,7 +195,6 @@ export default function TimelineTarget() {
       setFormErrors(errs);
       return;
     }
-
     setLoading(true);
     try {
       const { data } = await axios.put(`${API}/${editSno}`, form, { headers });
@@ -204,16 +211,11 @@ export default function TimelineTarget() {
     }
   };
 
-  // ── Numeric input change handler ────────────────────────────────────────────
+  // ── Numeric input change ───────────────────────────────────────────────────
   const handleNumericChange = (key, val) => {
     setForm((f) => ({ ...f, [key]: val }));
     setFormErrors((prev) => ({ ...prev, [key]: "" }));
   };
-
-  const pageNumbers = Array.from(
-    { length: totalPages },
-    (_, i) => i + 1,
-  ).filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2);
 
   return (
     <>
@@ -242,8 +244,8 @@ export default function TimelineTarget() {
           </div>
         )}
 
-        {/* ── Toolbar ────────────────────────────────────────────────── */}
-        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-end gap-2">
+        {/* ── Live Search Toolbar ───────────────────────────────────── */}
+        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-center gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
               Product
@@ -254,25 +256,18 @@ export default function TimelineTarget() {
               style={{ width: "220px" }}
               placeholder="Search by Product..."
               value={searchVal}
-              onChange={(e) => setSearchVal(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              onChange={handleLiveSearch}
             />
           </div>
-          <div className="d-flex gap-2 align-items-end">
+          {searchVal && (
             <button
-              className="btn btn-sm btn-primary-custom"
-              onClick={handleSearch}
-            >
-              <i className="bi bi-search me-1"></i>Search
-            </button>
-            <button
-              className="btn btn-sm btn-outline-secondary"
+              className="btn btn-sm btn-outline-secondary align-self-end"
               onClick={handleClear}
             >
               <i className="bi bi-x-circle me-1"></i>Clear
             </button>
-          </div>
-          <div className="ms-auto d-flex align-items-end gap-2">
+          )}
+          <div className="ms-auto d-flex align-items-center gap-2">
             <span className="text-muted" style={{ fontSize: "0.82rem" }}>
               Records: <strong>{filtered.length}</strong>
             </span>
@@ -378,11 +373,7 @@ export default function TimelineTarget() {
                       )}
                       <button
                         key={p}
-                        className={`btn btn-sm ${
-                          page === p
-                            ? "btn-primary-custom"
-                            : "btn-outline-secondary"
-                        }`}
+                        className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
                         onClick={() => setPage(p)}
                       >
                         {p}
@@ -410,9 +401,7 @@ export default function TimelineTarget() {
                   style={{ color: "#800000", fontWeight: 700 }}
                 >
                   <i
-                    className={`bi ${
-                      panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"
-                    } me-2`}
+                    className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}
                   ></i>
                   {panel === "add"
                     ? "Create Timeline Target"
@@ -499,9 +488,7 @@ export default function TimelineTarget() {
                       <input
                         type="number"
                         min="0"
-                        className={`form-control form-control-sm ${
-                          formErrors[key] ? "is-invalid" : ""
-                        }`}
+                        className={`form-control form-control-sm ${formErrors[key] ? "is-invalid" : ""}`}
                         value={form[key]}
                         onChange={(e) =>
                           handleNumericChange(key, e.target.value)
@@ -535,9 +522,7 @@ export default function TimelineTarget() {
                       <span className="spinner-border spinner-border-sm me-1"></span>
                     ) : (
                       <i
-                        className={`bi ${
-                          panel === "add" ? "bi-check-circle" : "bi-save"
-                        } me-1`}
+                        className={`bi ${panel === "add" ? "bi-check-circle" : "bi-save"} me-1`}
                       ></i>
                     )}
                     {panel === "add" ? "Save" : "Update"}
