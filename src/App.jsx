@@ -21,6 +21,11 @@ import TimelineTarget from "./pages/masters/TimelineTarget";
 import CostPrice from "./pages/masters/CostPrice";
 import Privileged from "./pages/masters/Privileged";
 import { isLoggedIn } from "./utils/auth";
+import AddEnquiry from "./pages/Enquiry/AddEnquiry";
+import EnquiryTable from "./pages/Enquiry/EnquiryTable";
+import EditEnquiry from "./pages/Enquiry/EditEnquiry";
+import EnquiryHome from "./pages/Enquiry/EnquiryHome";
+import ViewEnquiry from "./pages/Enquiry/ViewEnquiry";
 
 function ProtectedRoute({ children }) {
   return isLoggedIn() ? children : <Navigate to="/login" replace />;
@@ -202,6 +207,48 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        {/* ── Enquiry Routes ── */}
+        <Route
+          path="/enquiry"
+          element={
+            <ProtectedRoute>
+              <EnquiryHome />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/enquiry/register"
+          element={
+            <ProtectedRoute>
+              <EnquiryTable />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/enquiry/add"
+          element={
+            <ProtectedRoute>
+              <AddEnquiry />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="enquiry/edit/:quotenumber"
+          element={
+            <ProtectedRoute>
+              <EditEnquiry />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="enquiry/view/:quotenumber"
+          element={
+            <ProtectedRoute>
+              <ViewEnquiry />
+            </ProtectedRoute>
+          }
+        />
+
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
