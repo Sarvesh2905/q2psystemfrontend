@@ -1,3 +1,5 @@
+// src/utils/auth.js
+
 export const saveAuth = (token, user) => {
   localStorage.setItem("q2p_token", token);
   localStorage.setItem("q2p_user", JSON.stringify(user));
@@ -5,7 +7,7 @@ export const saveAuth = (token, user) => {
 
 export const getAuth = () => {
   const token = localStorage.getItem("q2p_token");
-  const user = JSON.parse(localStorage.getItem("q2p_user") || "null");
+  const user  = JSON.parse(localStorage.getItem("q2p_user") || "null");
   return { token, user };
 };
 
