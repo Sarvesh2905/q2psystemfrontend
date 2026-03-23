@@ -24,7 +24,7 @@ export default function Privileged() {
   const [filtered, setFiltered] = useState([]);
   const [page, setPage] = useState(1);
   const [searchVal, setSearchVal] = useState("");
-  const [panel, setPanel] = useState(null); // 'add' | 'edit' | null
+  const [panel, setPanel] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [editSno, setEditSno] = useState(null);
   const [editProgLocked, setEditProgLocked] = useState("");
@@ -160,7 +160,11 @@ export default function Privileged() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { data } = await axios.put(`${API}/${editSno}`, form, { headers });
+      const { data } = await axios.put(
+        `${API}/${editSno}`,
+        { Privilege: form.Privilege },
+        { headers },
+      );
       showAlert(data.message, "success");
       closePanel();
       fetchData();

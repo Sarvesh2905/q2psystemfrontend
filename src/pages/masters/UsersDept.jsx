@@ -143,13 +143,14 @@ export default function UsersDept() {
     }
   };
 
+  // ── EDIT — only Email submitted ───────────────────────────────────────────
   const handleEdit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
       const { data } = await axios.put(
         `${API}/${encodeURIComponent(editOrigId)}`,
-        { Username: form.Username, Email: form.Email },
+        { Email: form.Email },
         { headers },
       );
       showAlert(data.message, "success");
@@ -385,6 +386,7 @@ export default function UsersDept() {
                 onSubmit={panel === "add" ? handleAdd : handleEdit}
                 noValidate
               >
+                {/* Application Engineer ID */}
                 <div className="mb-3">
                   <label className="form-label panel-label">
                     Application Engineer ID{" "}
@@ -419,6 +421,7 @@ export default function UsersDept() {
                   )}
                 </div>
 
+                {/* Application Engineer Name */}
                 <div className="mb-3">
                   <label className="form-label panel-label">
                     Application Engineer Name{" "}
@@ -446,6 +449,7 @@ export default function UsersDept() {
                   )}
                 </div>
 
+                {/* Email — editable in both add & edit */}
                 <div className="mb-4">
                   <label className="form-label panel-label">
                     Email <span className="text-danger">*</span>

@@ -7,6 +7,72 @@ import "./enquiry.css";
 
 const API = "http://localhost:5001";
 
+/* ════════════════════════════════════════
+   PRODUCT VISUAL MAPPER (same as AddEnquiry)
+════════════════════════════════════════ */
+const getProductVisual = (name) => {
+  const n = (name || "").toLowerCase();
+  if (n.includes("valve"))
+    return { icon: "bi-gear-wide-connected", bg: "#e8f4fd", color: "#1565c0" };
+  if (n.includes("pump"))
+    return { icon: "bi-droplet-fill", bg: "#e8f5e9", color: "#2e7d32" };
+  if (n.includes("filter"))
+    return { icon: "bi-funnel-fill", bg: "#fff8e1", color: "#f57f17" };
+  if (n.includes("pipe") || n.includes("tube"))
+    return {
+      icon: "bi-distribute-horizontal",
+      bg: "#fce4ec",
+      color: "#c62828",
+    };
+  if (n.includes("fitting") || n.includes("flange"))
+    return { icon: "bi-wrench-adjustable", bg: "#f3e5f5", color: "#6a1b9a" };
+  if (n.includes("sensor") || n.includes("transmit"))
+    return { icon: "bi-cpu-fill", bg: "#e0f2f1", color: "#00695c" };
+  if (n.includes("actuator") || n.includes("motor"))
+    return {
+      icon: "bi-lightning-charge-fill",
+      bg: "#fff3e0",
+      color: "#e65100",
+    };
+  if (n.includes("seal") || n.includes("gasket"))
+    return { icon: "bi-circle-fill", bg: "#fafafa", color: "#546e7a" };
+  if (n.includes("gauge") || n.includes("meter") || n.includes("measure"))
+    return { icon: "bi-speedometer2", bg: "#e8eaf6", color: "#283593" };
+  if (n.includes("heat") || n.includes("exchanger"))
+    return { icon: "bi-thermometer-half", bg: "#fbe9e7", color: "#bf360c" };
+  if (n.includes("control") || n.includes("panel"))
+    return { icon: "bi-toggles", bg: "#e1f5fe", color: "#0277bd" };
+  if (n.includes("cable") || n.includes("wire"))
+    return { icon: "bi-ethernet", bg: "#f9fbe7", color: "#827717" };
+  if (n.includes("bolt") || n.includes("nut") || n.includes("screw"))
+    return { icon: "bi-tools", bg: "#efebe9", color: "#4e342e" };
+  if (n.includes("bearing"))
+    return { icon: "bi-circle-half", bg: "#e8eaf6", color: "#1a237e" };
+  if (n.includes("reducer") || n.includes("gearbox"))
+    return { icon: "bi-gear-fill", bg: "#fafafa", color: "#37474f" };
+  if (n.includes("strainer"))
+    return { icon: "bi-grid-3x3-gap-fill", bg: "#fff8e1", color: "#f57f17" };
+  if (n.includes("pressure"))
+    return { icon: "bi-speedometer", bg: "#e8eaf6", color: "#283593" };
+  if (n.includes("flow"))
+    return { icon: "bi-water", bg: "#e1f5fe", color: "#0277bd" };
+  if (n.includes("level"))
+    return { icon: "bi-bar-chart-fill", bg: "#e8f5e9", color: "#2e7d32" };
+  if (n.includes("temp") || n.includes("therm"))
+    return { icon: "bi-thermometer-sun", bg: "#fbe9e7", color: "#bf360c" };
+  if (n.includes("regulator"))
+    return { icon: "bi-sliders", bg: "#f3e5f5", color: "#6a1b9a" };
+  if (n.includes("check"))
+    return { icon: "bi-shield-check-fill", bg: "#e8f5e9", color: "#2e7d32" };
+  if (n.includes("relief") || n.includes("safety"))
+    return {
+      icon: "bi-exclamation-triangle-fill",
+      bg: "#fff3e0",
+      color: "#e65100",
+    };
+  return { icon: "bi-box-seam-fill", bg: "#fff0f0", color: "#800000" };
+};
+
 export default function EditEnquiry() {
   const { quotenumber } = useParams();
   const navigate = useNavigate();
@@ -40,7 +106,6 @@ export default function EditEnquiry() {
 
   /* ── form state ── */
   const [form, setForm] = useState({
-    // Section 1
     Customername: "",
     Customertype: "",
     CustomerCountry: "",
@@ -51,7 +116,6 @@ export default function EditEnquiry() {
     EndCountry: "",
     EndIndustry: "",
     EndUse: "",
-    // Section 2
     RFQDate: "",
     Deptuser: "",
     Salescontact: "",
@@ -59,7 +123,6 @@ export default function EditEnquiry() {
     RFQCategory: "",
     RFQreference: "",
     Comments: "",
-    // Section 3
     Facingfactory: "",
     Product: [],
     Totallineitems: "",
@@ -68,7 +131,6 @@ export default function EditEnquiry() {
     Winprob: "",
     Priority: "Low",
     Projectname: "",
-    // Section 4
     Quotenumber: "",
     RFQREGDate: "",
     Quotestage: "",
@@ -79,12 +141,11 @@ export default function EditEnquiry() {
     effEnqOverride: false,
     RevisedDate: "",
     Reason: "",
-    // internal
     _originalStage: "",
     _rev: 0,
   });
 
-  /* ── helper: safe date for input[type=date] ── */
+  /* ── safe date formatter ── */
   const fmtForInput = (val) => {
     if (!val) return "";
     const d = new Date(val);
@@ -126,8 +187,6 @@ export default function EditEnquiry() {
         setReasons(rsn.data);
 
         const r = rec.data;
-
-        // parse Product → array
         const prodArr = r.Product
           ? r.Product.split(",")
               .map((p) => p.trim())
@@ -173,7 +232,6 @@ export default function EditEnquiry() {
           _originalStage: r.Quotestage || "",
           _rev: r.Rev || 0,
         });
-
         setLoading(false);
       })
       .catch(() => {
@@ -182,15 +240,16 @@ export default function EditEnquiry() {
       });
   }, []); // eslint-disable-line
 
+  /* ── Bootstrap flags ── */
+  const [customerBootstrapped, setCustomerBootstrapped] = useState(false);
+  const [ffBootstrapped, setFfBootstrapped] = useState(false);
+
   /* ════════════════════════════════════════
      CUSTOMER CHANGE → auto-fill
   ════════════════════════════════════════ */
-  const [customerBootstrapped, setCustomerBootstrapped] = useState(false);
-
   useEffect(() => {
     if (!form.Customername) return;
     if (!customerBootstrapped) {
-      // on first load — just fetch buyers, don't overwrite auto-filled fields
       axios
         .get(`${API}/api/enquiry/getbuyers`, {
           headers,
@@ -201,7 +260,6 @@ export default function EditEnquiry() {
       setCustomerBootstrapped(true);
       return;
     }
-    // user changed customer — re-fetch everything
     axios
       .get(`${API}/api/enquiry/getcustomerinfo`, {
         headers,
@@ -227,7 +285,7 @@ export default function EditEnquiry() {
   }, [form.Customername]); // eslint-disable-line
 
   /* ════════════════════════════════════════
-     END INDUSTRY → auto-fill EndUse
+     END INDUSTRY → EndUse
   ════════════════════════════════════════ */
   useEffect(() => {
     if (!form.EndIndustry) return;
@@ -241,15 +299,22 @@ export default function EditEnquiry() {
   }, [form.EndIndustry]); // eslint-disable-line
 
   /* ════════════════════════════════════════
-     FACING FACTORY → filter products
+     FACING FACTORY → products (with bootstrap guard)
   ════════════════════════════════════════ */
-  const [ffBootstrapped, setFfBootstrapped] = useState(false);
-
   useEffect(() => {
     if (!ffBootstrapped) {
+      // On mount: load products for existing factory WITHOUT resetting selection
+      const params = form.Facingfactory
+        ? { facingfactory: form.Facingfactory }
+        : {};
+      axios
+        .get(`${API}/api/enquiry/getproducts`, { headers, params })
+        .then((r) => setProducts(r.data))
+        .catch(() => {});
       setFfBootstrapped(true);
       return;
     }
+    // User changed factory → reset product selection
     const params = form.Facingfactory
       ? { facingfactory: form.Facingfactory }
       : {};
@@ -262,18 +327,8 @@ export default function EditEnquiry() {
       .catch(() => {});
   }, [form.Facingfactory]); // eslint-disable-line
 
-  /* load products on mount without resetting selection */
-  useEffect(() => {
-    if (!form.Facingfactory && products.length === 0) {
-      axios
-        .get(`${API}/api/enquiry/getproducts`, { headers })
-        .then((r) => setProducts(r.data))
-        .catch(() => {});
-    }
-  }, [form.Facingfactory, products.length]); // eslint-disable-line
-
   /* ════════════════════════════════════════
-     QUOTE STAGE → filter opp stages
+     QUOTE STAGE → opp stages
   ════════════════════════════════════════ */
   useEffect(() => {
     if (!form.Quotestage) {
@@ -294,16 +349,17 @@ export default function EditEnquiry() {
   ════════════════════════════════════════ */
   const set = (field, value) => setForm((f) => ({ ...f, [field]: value }));
 
-  const handleProductSelect = (e) => {
-    const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
-    set("Product", selected);
+  const toggleProduct = (name) => {
+    const current = Array.isArray(form.Product) ? form.Product : [];
+    const updated = current.includes(name)
+      ? current.filter((x) => x !== name)
+      : [...current, name];
+    setForm((f) => ({ ...f, Product: updated }));
   };
 
-  /* stage changed? */
   const stageChanged =
     form.Quotestage?.toUpperCase() !== form._originalStage?.toUpperCase();
 
-  /* show Reason field for Regret / Cancelled */
   const showReason = ["REGRET", "CANCELLED"].includes(
     form.Quotestage?.toUpperCase(),
   );
@@ -351,7 +407,7 @@ export default function EditEnquiry() {
   };
 
   /* ════════════════════════════════════════
-     GUARDS
+     LOADING GUARD
   ════════════════════════════════════════ */
   if (loading) {
     return (
@@ -372,7 +428,7 @@ export default function EditEnquiry() {
     <>
       <DashboardNavbar />
       <div className="enq-wrapper">
-        {/* Header */}
+        {/* ── Header ── */}
         <div className="d-flex align-items-center gap-2 mb-3">
           <button
             className="btn btn-sm back-btn"
@@ -394,6 +450,7 @@ export default function EditEnquiry() {
           </h5>
         </div>
 
+        {/* ── Alert ── */}
         {alert.msg && (
           <div
             className={`alert alert-${alert.type} py-2 mb-3`}
@@ -404,9 +461,9 @@ export default function EditEnquiry() {
         )}
 
         <form onSubmit={handleSubmit} autoComplete="off">
-          {/* ══════════════════════════════════════
-               SECTION 1 — CUSTOMER
-          ══════════════════════════════════════ */}
+          {/* ══════════════════════════════
+              SECTION 1 — CUSTOMER
+          ══════════════════════════════ */}
           <div className="enq-form-card">
             <div className="enq-section-title">
               <i className="bi bi-building me-2"></i>1. Customer
@@ -494,7 +551,8 @@ export default function EditEnquiry() {
                   className="form-control"
                   value={form.Endusername}
                   onChange={(e) => set("Endusername", e.target.value)}
-                  placeholder="Enter end user name"
+                  placeholder="Enter End User..."
+                  maxLength={50}
                 />
               </div>
 
@@ -532,8 +590,9 @@ export default function EditEnquiry() {
 
               <div className="enq-form-group">
                 <label>End Use</label>
-                <input
+                <textarea
                   className="form-control enq-readonly-field"
+                  rows={2}
                   value={form.EndUse}
                   readOnly
                   placeholder="Auto-filled from industry"
@@ -542,9 +601,9 @@ export default function EditEnquiry() {
             </div>
           </div>
 
-          {/* ══════════════════════════════════════
-               SECTION 2 — RFQ
-          ══════════════════════════════════════ */}
+          {/* ══════════════════════════════
+              SECTION 2 — RFQ DETAILS
+          ══════════════════════════════ */}
           <div className="enq-form-card">
             <div className="enq-section-title">
               <i className="bi bi-file-earmark-text me-2"></i>2. RFQ Details
@@ -610,11 +669,13 @@ export default function EditEnquiry() {
                     value={
                       rfqTypes.includes(form.RFQType)
                         ? form.RFQType
-                        : "__custom__"
+                        : form.RFQType
+                          ? "__custom__"
+                          : ""
                     }
                     onChange={(e) => {
-                      if (e.target.value !== "__custom__")
-                        set("RFQType", e.target.value);
+                      if (e.target.value === "__custom__") set("RFQType", "");
+                      else set("RFQType", e.target.value);
                     }}
                   >
                     <option value="">— Select Type —</option>
@@ -625,15 +686,13 @@ export default function EditEnquiry() {
                     ))}
                     <option value="__custom__">+ Custom...</option>
                   </select>
-                  {(!rfqTypes.includes(form.RFQType) ||
-                    form.RFQType === "") && (
+                  {form.RFQType && !rfqTypes.includes(form.RFQType) && (
                     <input
-                      className="form-control"
-                      placeholder="Type custom..."
-                      value={
-                        rfqTypes.includes(form.RFQType) ? "" : form.RFQType
-                      }
+                      className="form-control mt-1"
+                      placeholder="Enter custom type..."
+                      value={form.RFQType}
                       onChange={(e) => set("RFQType", e.target.value)}
+                      maxLength={45}
                     />
                   )}
                 </div>
@@ -681,14 +740,15 @@ export default function EditEnquiry() {
             </div>
           </div>
 
-          {/* ══════════════════════════════════════
-               SECTION 3 — PRODUCT
-          ══════════════════════════════════════ */}
+          {/* ══════════════════════════════
+              SECTION 3 — PRODUCT
+          ══════════════════════════════ */}
           <div className="enq-form-card">
             <div className="enq-section-title">
               <i className="bi bi-box-seam me-2"></i>3. Product
             </div>
             <div className="enq-product-layout">
+              {/* ── Left: fields + product picker ── */}
               <div className="enq-product-fields">
                 <div className="enq-form-grid">
                   <div className="enq-form-group">
@@ -747,9 +807,9 @@ export default function EditEnquiry() {
                       onChange={(e) => set("Winprob", e.target.value)}
                     >
                       <option value="">— Select —</option>
-                      <option value="High">High</option>
-                      <option value="Medium">Medium</option>
-                      <option value="Low">Low</option>
+                      <option value="LOW">LOW</option>
+                      <option value="MEDIUM">MEDIUM</option>
+                      <option value="HIGH">HIGH</option>
                     </select>
                   </div>
 
@@ -768,81 +828,157 @@ export default function EditEnquiry() {
 
                   <div className="enq-form-group enq-form-group-full">
                     <label>Project Name</label>
-                    <input
+                    <textarea
                       className="form-control"
+                      rows={3}
                       value={form.Projectname}
                       onChange={(e) => set("Projectname", e.target.value)}
-                      placeholder="Enter project name"
+                      placeholder="Enter Project Name..."
                       maxLength={75}
                     />
                   </div>
 
+                  {/* ── PRODUCT CLICK CARDS ── */}
                   <div className="enq-form-group enq-form-group-full">
                     <label>
-                      Products <span className="req">*</span>
+                      Product <span className="req">*</span>
                       <span className="enq-hint ms-2">
-                        (Hold Ctrl / Cmd to select multiple)
+                        (Click to select / deselect)
                       </span>
                     </label>
-                    <select
-                      multiple
-                      className="form-select enq-product-select"
-                      value={form.Product}
-                      onChange={handleProductSelect}
-                    >
-                      {products.map((p) => (
-                        <option key={p} value={p}>
-                          {p}
-                        </option>
-                      ))}
-                    </select>
+
+                    {products.length === 0 ? (
+                      <div className="enq-product-empty-msg">
+                        <i className="bi bi-inbox me-2"></i>
+                        No products found
+                      </div>
+                    ) : (
+                      <div className="enq-product-grid">
+                        {products.map((p) => {
+                          const isSelected = form.Product.includes(p.name || p);
+                          const prodName = p.name || p;
+                          const img = getProductVisual(prodName);
+                          return (
+                            <div
+                              key={prodName}
+                              className={`enq-product-card ${isSelected ? "enq-product-card--selected" : ""}`}
+                              onClick={() => toggleProduct(prodName)}
+                              role="button"
+                              tabIndex={0}
+                              onKeyDown={(e) =>
+                                e.key === "Enter" && toggleProduct(prodName)
+                              }
+                            >
+                              <div
+                                className="enq-product-card-icon"
+                                style={{
+                                  background: img.bg,
+                                  border: `1.5px solid ${img.color}33`,
+                                }}
+                              >
+                                <i
+                                  className={`bi ${img.icon}`}
+                                  style={{ color: img.color, fontSize: "1rem" }}
+                                ></i>
+                              </div>
+                              <div className="enq-product-card-text">
+                                <span className="enq-product-card-name">
+                                  {prodName}
+                                </span>
+                                {p.prdgroup && (
+                                  <span className="enq-product-card-group">
+                                    {p.prdgroup}
+                                  </span>
+                                )}
+                              </div>
+                              {isSelected && (
+                                <i className="bi bi-check-circle-fill enq-product-card-check"></i>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Product Image Panel */}
+              {/* ── Right: Selected Products panel ── */}
               <div className="enq-product-imgpanel">
                 <div className="enq-imgpanel-title">
-                  <i className="bi bi-images me-2"></i>Selected Products
+                  <i className="bi bi-check2-square me-1"></i>
+                  Selected Products
+                  {form.Product.length > 0 && (
+                    <span className="enq-product-count">
+                      {form.Product.length}
+                    </span>
+                  )}
                 </div>
+
                 {form.Product.length === 0 ? (
                   <div className="enq-imgpanel-empty">
                     <i
                       className="bi bi-box-seam"
-                      style={{ fontSize: "2rem", color: "#ccc" }}
+                      style={{ fontSize: "2.2rem", color: "#ddd" }}
                     ></i>
-                    <p className="mb-0" style={{ fontSize: "0.78rem" }}>
+                    <p
+                      className="mb-0 mt-1"
+                      style={{ fontSize: "0.76rem", color: "#bbb" }}
+                    >
                       No products selected
+                    </p>
+                    <p
+                      style={{ fontSize: "0.72rem", color: "#ccc", margin: 0 }}
+                    >
+                      Click a product to add
                     </p>
                   </div>
                 ) : (
                   <div className="enq-imgpanel-cards">
-                    {form.Product.map((prod) => (
-                      <div key={prod} className="enq-imgpanel-card">
-                        <div className="enq-imgpanel-placeholder">
-                          <i
-                            className="bi bi-image text-muted"
-                            style={{ fontSize: "1.4rem" }}
-                          ></i>
+                    {form.Product.map((prodName) => {
+                      const img = getProductVisual(prodName);
+                      return (
+                        <div key={prodName} className="enq-imgpanel-card">
+                          <div
+                            className="enq-imgpanel-placeholder"
+                            style={{
+                              background: img.bg,
+                              border: `1.5px solid ${img.color}33`,
+                            }}
+                          >
+                            <i
+                              className={`bi ${img.icon}`}
+                              style={{ fontSize: "1.2rem", color: img.color }}
+                            ></i>
+                          </div>
+                          <div className="enq-imgpanel-prodname">
+                            {prodName}
+                          </div>
+                          <button
+                            type="button"
+                            className="enq-imgpanel-remove"
+                            onClick={() => toggleProduct(prodName)}
+                            title="Remove"
+                          >
+                            <i className="bi bi-x-circle-fill"></i>
+                          </button>
                         </div>
-                        <div className="enq-imgpanel-prodname">{prod}</div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
             </div>
           </div>
 
-          {/* ══════════════════════════════════════
-               SECTION 4 — QUOTE
-          ══════════════════════════════════════ */}
+          {/* ══════════════════════════════
+              SECTION 4 — QUOTE DETAILS
+          ══════════════════════════════ */}
           <div className="enq-form-card">
             <div className="enq-section-title">
               <i className="bi bi-journal-bookmark me-2"></i>4. Quote Details
             </div>
             <div className="enq-form-grid">
-              {/* Quote Number — readonly */}
               <div className="enq-form-group">
                 <label>Quote Number</label>
                 <input
@@ -852,7 +988,6 @@ export default function EditEnquiry() {
                 />
               </div>
 
-              {/* Register Date — readonly */}
               <div className="enq-form-group">
                 <label>Register Date</label>
                 <input
@@ -862,7 +997,6 @@ export default function EditEnquiry() {
                 />
               </div>
 
-              {/* Quote Stage */}
               <div className="enq-form-group">
                 <label>Quote Stage</label>
                 <select
@@ -883,7 +1017,6 @@ export default function EditEnquiry() {
                 </select>
               </div>
 
-              {/* Opportunity Stage */}
               <div className="enq-form-group">
                 <label>Opportunity Stage</label>
                 <select
@@ -901,7 +1034,6 @@ export default function EditEnquiry() {
                 </select>
               </div>
 
-              {/* Quote Submitted Date */}
               <div className="enq-form-group">
                 <label>Quote Submitted Date</label>
                 <input
@@ -909,10 +1041,24 @@ export default function EditEnquiry() {
                   className="form-control"
                   value={form.Quotesubmitteddate}
                   onChange={(e) => set("Quotesubmitteddate", e.target.value)}
+                  disabled={form.Quotestage?.toLowerCase() === "enquiry"}
+                  style={
+                    form.Quotestage?.toLowerCase() === "enquiry"
+                      ? { background: "#f0f0f0" }
+                      : {}
+                  }
                 />
               </div>
 
-              {/* Expected Order Date */}
+              <div className="enq-form-group">
+                <label>Revision</label>
+                <input
+                  className="form-control enq-readonly-field"
+                  value={form._rev}
+                  readOnly
+                />
+              </div>
+
               <div className="enq-form-group">
                 <label>Expected Order Date</label>
                 <input
@@ -923,7 +1069,6 @@ export default function EditEnquiry() {
                 />
               </div>
 
-              {/* Eff. Enquiry Date — override toggle */}
               <div className="enq-form-group">
                 <label>
                   Eff. Enquiry Date
@@ -952,7 +1097,7 @@ export default function EditEnquiry() {
                 </div>
               </div>
 
-              {/* Revised Date — shown when stage changes */}
+              {/* Revised Date — only when stage changed */}
               {stageChanged && (
                 <div className="enq-form-group">
                   <label>
@@ -1000,9 +1145,7 @@ export default function EditEnquiry() {
             )}
           </div>
 
-          {/* ══════════════════════════════════════
-               ACTION BUTTONS
-          ══════════════════════════════════════ */}
+          {/* ── Action Buttons ── */}
           <div className="enq-form-actions">
             <button
               type="button"

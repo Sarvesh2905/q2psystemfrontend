@@ -207,6 +207,7 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+
         {/* ── Enquiry Routes ── */}
         <Route
           path="/enquiry"
@@ -233,7 +234,7 @@ export default function App() {
           }
         />
         <Route
-          path="enquiry/edit/:quotenumber"
+          path="/enquiry/edit/:quotenumber"
           element={
             <ProtectedRoute>
               <EditEnquiry />
@@ -241,7 +242,7 @@ export default function App() {
           }
         />
         <Route
-          path="enquiry/view/:quotenumber"
+          path="/enquiry/view/:quotenumber"
           element={
             <ProtectedRoute>
               <ViewEnquiry />

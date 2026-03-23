@@ -64,7 +64,7 @@ export default function CustomerTypeMaster() {
       !q
         ? allData
         : allData.filter((row) =>
-            [row.CustomerType || row.CountryType, row.status]
+            [row.CustomerType, row.status]
               .map((v) => (v || "").toLowerCase())
               .some((v) => v.includes(q)),
           ),
@@ -246,59 +246,56 @@ export default function CustomerTypeMaster() {
                     </td>
                   </tr>
                 ) : (
-                  paginated.map((row, idx) => {
-                    const name = row.CustomerType || row.CountryType;
-                    return (
-                      <tr key={row.Sno}>
-                        <td>{(page - 1) * PAGE_SIZE + idx + 1}</td>
-                        <td>
-                          <span
-                            className="badge"
-                            style={{
-                              backgroundColor: "#800000",
-                              color: "#fff",
-                              fontSize: "0.78rem",
-                              letterSpacing: "0.03em",
-                            }}
-                          >
-                            {name}
-                          </span>
-                        </td>
-                        <td>
-                          <span
-                            className={`badge ${
+                  paginated.map((row, idx) => (
+                    <tr key={row.Sno}>
+                      <td>{(page - 1) * PAGE_SIZE + idx + 1}</td>
+                      <td>
+                        <span
+                          className="badge"
+                          style={{
+                            backgroundColor: "#800000",
+                            color: "#fff",
+                            fontSize: "0.78rem",
+                            letterSpacing: "0.03em",
+                          }}
+                        >
+                          {row.CustomerType}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          className={`badge ${
+                            row.status === "Active"
+                              ? "bg-success"
+                              : "bg-secondary"
+                          }`}
+                        >
+                          {row.status}
+                        </span>
+                      </td>
+                      {canEdit && (
+                        <td className="text-center">
+                          <button
+                            className={`btn btn-xs status-btn ${
                               row.status === "Active"
-                                ? "bg-success"
-                                : "bg-secondary"
+                                ? "status-active"
+                                : "status-inactive"
                             }`}
+                            onClick={() =>
+                              setConfirmModal({
+                                show: true,
+                                sno: row.Sno,
+                                currentStatus: row.status,
+                                name: row.CustomerType,
+                              })
+                            }
                           >
                             {row.status}
-                          </span>
+                          </button>
                         </td>
-                        {canEdit && (
-                          <td className="text-center">
-                            <button
-                              className={`btn btn-xs status-btn ${
-                                row.status === "Active"
-                                  ? "status-active"
-                                  : "status-inactive"
-                              }`}
-                              onClick={() =>
-                                setConfirmModal({
-                                  show: true,
-                                  sno: row.Sno,
-                                  currentStatus: row.status,
-                                  name,
-                                })
-                              }
-                            >
-                              {row.status}
-                            </button>
-                          </td>
-                        )}
-                      </tr>
-                    );
-                  })
+                      )}
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
