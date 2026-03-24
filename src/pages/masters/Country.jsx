@@ -8,12 +8,12 @@ const API = "http://localhost:5001/api/country";
 const PAGE_SIZE = 50;
 
 const emptyForm = {
-  Countrycode: "",
-  Countryname: "",
+  Country_code: "",
+  Country_name: "",
   Region: "",
   Currency: "",
-  CurrencyName: "",
-  Conversionrate: "",
+  Currency_Name: "",
+  Conversion_rate: "",
 };
 
 export default function Country() {
@@ -26,7 +26,6 @@ export default function Country() {
   const [filtered, setFiltered] = useState([]);
   const [page, setPage] = useState(1);
   const [searchVal, setSearchVal] = useState("");
-
   const [panel, setPanel] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [editSno, setEditSno] = useState(null);
@@ -65,7 +64,6 @@ export default function Country() {
     fetchData();
   }, [fetchData]);
 
-  // ── Live Search across ALL columns ────────────────────────────────────────
   const handleLiveSearch = (e) => {
     const val = e.target.value;
     setSearchVal(val);
@@ -75,12 +73,12 @@ export default function Country() {
         ? allData
         : allData.filter((row) =>
             [
-              row.Countrycode,
-              row.Countryname,
+              row.Country_code,       // ✅ FIXED
+              row.Country_name,       // ✅ FIXED
               row.Region,
               row.Currency,
-              row.CurrencyName,
-              row.Conversionrate != null ? String(row.Conversionrate) : "",
+              row.Currency_Name,      // ✅ FIXED
+              row.Conversion_rate != null ? String(row.Conversion_rate) : "",
               row.status,
             ]
               .map((v) => (v || "").toLowerCase())
@@ -109,18 +107,18 @@ export default function Country() {
   const openEdit = (row) => {
     if (row.status === "Inactive") {
       showAlert(
-        `"${row.Countryname}" is Inactive and cannot be edited.`,
+        `"${row.Country_name}" is Inactive and cannot be edited.`, // ✅ FIXED
         "warning",
       );
       return;
     }
     setForm({
-      Countrycode: row.Countrycode || "",
-      Countryname: row.Countryname || "",
+      Country_code: row.Country_code || "",       // ✅ FIXED
+      Country_name: row.Country_name || "",       // ✅ FIXED
       Region: row.Region || "",
       Currency: row.Currency || "",
-      CurrencyName: row.CurrencyName || "",
-      Conversionrate: row.Conversionrate ?? "",
+      Currency_Name: row.Currency_Name || "",     // ✅ FIXED
+      Conversion_rate: row.Conversion_rate ?? "", // ✅ FIXED
     });
     setEditSno(row.Sno);
     setFieldErrors({});
@@ -135,18 +133,18 @@ export default function Country() {
   };
 
   const checkCountrycode = async () => {
-    if (!form.Countrycode.trim()) return;
+    if (!form.Country_code.trim()) return;
     try {
       const { data } = await axios.get(
-        `${API}/check?countrycode=${encodeURIComponent(form.Countrycode.trim())}`,
+        `${API}/check?countrycode=${encodeURIComponent(form.Country_code.trim())}`,
         { headers },
       );
       if (data.exists)
-        setFieldErrors((prev) => ({ ...prev, Countrycode: data.message }));
+        setFieldErrors((prev) => ({ ...prev, Country_code: data.message }));
       else
         setFieldErrors((prev) => {
           const e = { ...prev };
-          delete e.Countrycode;
+          delete e.Country_code;
           return e;
         });
     } catch {}
@@ -184,7 +182,7 @@ export default function Country() {
     try {
       const { data } = await axios.put(
         `${API}/${editSno}`,
-        { Region: form.Region, Conversionrate: form.Conversionrate },
+        { Region: form.Region, Conversion_rate: form.Conversion_rate }, // ✅ FIXED
         { headers },
       );
       showAlert(data.message, "success");
@@ -222,7 +220,6 @@ export default function Country() {
     <>
       <DashboardNavbar />
       <div className="container-fluid px-3 py-3">
-        {/* Breadcrumb */}
         <div className="d-flex align-items-center gap-2 mb-3">
           <button
             className="btn btn-sm back-btn"
@@ -245,7 +242,6 @@ export default function Country() {
           </div>
         )}
 
-        {/* ── Live Search Toolbar ───────────────────────────────── */}
         <div className="master-toolbar mb-3 d-flex flex-wrap align-items-center gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
@@ -283,9 +279,7 @@ export default function Country() {
           </div>
         </div>
 
-        {/* ── Table + Panel ────────────────────────────────────────── */}
         <div className="d-flex gap-3" style={{ minHeight: "60vh" }}>
-          {/* Table */}
           <div
             className="master-table-wrapper"
             style={{
@@ -327,23 +321,22 @@ export default function Country() {
                       }
                     >
                       <td>{(page - 1) * PAGE_SIZE + idx + 1}</td>
+                      {/* ✅ ALL FIXED to match exact DB column names */}
                       <td>
                         <span className="badge bg-secondary">
-                          {row.Countrycode}
+                          {row.Country_code}
                         </span>
                       </td>
-                      <td>{row.Countryname}</td>
+                      <td>{row.Country_name}</td>
                       <td>{row.Region || "—"}</td>
                       <td>
                         <strong>{row.Currency}</strong>
                       </td>
-                      <td>{row.CurrencyName || "—"}</td>
+                      <td>{row.Currency_Name || "—"}</td>
                       <td>
-                        <span className="text-monospace">
-                          {row.Conversionrate != null
-                            ? Number(row.Conversionrate).toFixed(4)
-                            : "—"}
-                        </span>
+                        {row.Conversion_rate != null
+                          ? Number(row.Conversion_rate).toFixed(4)
+                          : "—"}
                       </td>
                       <td className="text-center">
                         {canEdit ? (
@@ -365,7 +358,11 @@ export default function Country() {
                           </button>
                         ) : (
                           <span
-                            className={`badge ${row.status === "Active" ? "bg-success" : "bg-secondary"}`}
+                            className={`badge ${
+                              row.status === "Active"
+                                ? "bg-success"
+                                : "bg-secondary"
+                            }`}
                           >
                             {row.status}
                           </span>
@@ -377,7 +374,6 @@ export default function Country() {
               </tbody>
             </table>
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="d-flex justify-content-between align-items-center mt-2 px-1">
                 <small className="text-muted">
@@ -394,7 +390,9 @@ export default function Country() {
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
                     .filter(
                       (p) =>
-                        p === 1 || p === totalPages || Math.abs(p - page) <= 2,
+                        p === 1 ||
+                        p === totalPages ||
+                        Math.abs(p - page) <= 2,
                     )
                     .map((p, i, arr) => (
                       <>
@@ -405,7 +403,11 @@ export default function Country() {
                         )}
                         <button
                           key={p}
-                          className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
+                          className={`btn btn-sm ${
+                            page === p
+                              ? "btn-primary-custom"
+                              : "btn-outline-secondary"
+                          }`}
                           onClick={() => setPage(p)}
                         >
                           {p}
@@ -424,7 +426,6 @@ export default function Country() {
             )}
           </div>
 
-          {/* ── Side Panel ─────────────────────────────────────── */}
           {panel && (
             <div className="master-side-panel" style={{ flex: "0 0 40%" }}>
               <div className="panel-header d-flex justify-content-between align-items-center mb-3">
@@ -433,7 +434,11 @@ export default function Country() {
                   style={{ color: "#800000", fontWeight: 700 }}
                 >
                   <i
-                    className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}
+                    className={`bi ${
+                      panel === "add"
+                        ? "bi-plus-circle-fill"
+                        : "bi-pencil-fill"
+                    } me-2`}
                   ></i>
                   {panel === "add" ? "Create Country" : "Modify Country"}
                 </h6>
@@ -449,25 +454,27 @@ export default function Country() {
                 onSubmit={panel === "add" ? handleAdd : handleEdit}
                 noValidate
               >
-                {/* Country Code — locked in edit */}
+                {/* Country Code */}
                 <div className="mb-3">
                   <label className="form-label panel-label">
                     Country Code{" "}
-                    {panel === "add" && <span className="text-danger">*</span>}
-                    <small className="text-muted ms-1">
-                      (3 letters, e.g. IND)
-                    </small>
+                    {panel === "add" && (
+                      <span className="text-danger">*</span>
+                    )}
+                    <small className="text-muted ms-1">(e.g. IND)</small>
                   </label>
                   <input
                     type="text"
-                    className={`form-control form-control-sm ${fieldErrors.Countrycode ? "is-invalid" : ""}`}
-                    value={form.Countrycode}
+                    className={`form-control form-control-sm ${
+                      fieldErrors.Country_code ? "is-invalid" : ""
+                    }`}
+                    value={form.Country_code}
                     onChange={(e) => {
                       const v = e.target.value
                         .toUpperCase()
                         .replace(/[^A-Z]/g, "");
-                      setForm({ ...form, Countrycode: v });
-                      clearErr("Countrycode");
+                      setForm({ ...form, Country_code: v });
+                      clearErr("Country_code");
                     }}
                     onBlur={() => panel === "add" && checkCountrycode()}
                     readOnly={panel === "edit"}
@@ -476,27 +483,29 @@ export default function Country() {
                     maxLength={3}
                     placeholder="e.g. IND"
                   />
-                  {fieldErrors.Countrycode && (
+                  {fieldErrors.Country_code && (
                     <div className="invalid-feedback">
-                      {fieldErrors.Countrycode}
+                      {fieldErrors.Country_code}
                     </div>
                   )}
                 </div>
 
-                {/* Country Name — locked in edit */}
+                {/* Country Name */}
                 <div className="mb-3">
                   <label className="form-label panel-label">
                     Country Name{" "}
-                    {panel === "add" && <span className="text-danger">*</span>}
+                    {panel === "add" && (
+                      <span className="text-danger">*</span>
+                    )}
                   </label>
                   <input
                     type="text"
                     className="form-control form-control-sm"
-                    value={form.Countryname}
+                    value={form.Country_name}
                     onChange={(e) =>
                       setForm({
                         ...form,
-                        Countryname: e.target.value.toUpperCase(),
+                        Country_name: e.target.value.toUpperCase(),
                       })
                     }
                     readOnly={panel === "edit"}
@@ -507,7 +516,7 @@ export default function Country() {
                   />
                 </div>
 
-                {/* Region — editable always */}
+                {/* Region */}
                 <div className="mb-3">
                   <label className="form-label panel-label">Region</label>
                   <input
@@ -518,18 +527,18 @@ export default function Country() {
                       setForm({ ...form, Region: e.target.value })
                     }
                     maxLength={60}
-                    placeholder="e.g. South Asia"
+                    placeholder="e.g. Asia"
                   />
                 </div>
 
-                {/* Currency Code — locked in edit */}
+                {/* Currency Code */}
                 <div className="mb-3">
                   <label className="form-label panel-label">
                     Currency Code{" "}
-                    {panel === "add" && <span className="text-danger">*</span>}
-                    <small className="text-muted ms-1">
-                      (3 letters, e.g. INR)
-                    </small>
+                    {panel === "add" && (
+                      <span className="text-danger">*</span>
+                    )}
+                    <small className="text-muted ms-1">(e.g. INR)</small>
                   </label>
                   <input
                     type="text"
@@ -549,7 +558,7 @@ export default function Country() {
                   />
                 </div>
 
-                {/* Currency Name — locked in edit */}
+                {/* Currency Name */}
                 <div className="mb-3">
                   <label className="form-label panel-label">
                     Currency Name
@@ -557,9 +566,9 @@ export default function Country() {
                   <input
                     type="text"
                     className="form-control form-control-sm"
-                    value={form.CurrencyName}
+                    value={form.Currency_Name}
                     onChange={(e) =>
-                      setForm({ ...form, CurrencyName: e.target.value })
+                      setForm({ ...form, Currency_Name: e.target.value })
                     }
                     readOnly={panel === "edit"}
                     style={panel === "edit" ? lockedStyle : {}}
@@ -568,17 +577,18 @@ export default function Country() {
                   />
                 </div>
 
-                {/* Conversion Rate — editable always */}
+                {/* Conversion Rate */}
                 <div className="mb-4">
                   <label className="form-label panel-label">
-                    Conversion to USD <span className="text-danger">*</span>
+                    Conversion to USD{" "}
+                    <span className="text-danger">*</span>
                   </label>
                   <input
                     type="number"
                     className="form-control form-control-sm"
-                    value={form.Conversionrate}
+                    value={form.Conversion_rate}
                     onChange={(e) =>
-                      setForm({ ...form, Conversionrate: e.target.value })
+                      setForm({ ...form, Conversion_rate: e.target.value })
                     }
                     required
                     step="any"
@@ -594,13 +604,19 @@ export default function Country() {
                   <button
                     type="submit"
                     className="btn btn-sm btn-primary-custom flex-fill"
-                    disabled={loading || Object.keys(fieldErrors).length > 0}
+                    disabled={
+                      loading || Object.keys(fieldErrors).length > 0
+                    }
                   >
                     {loading ? (
                       <span className="spinner-border spinner-border-sm me-1"></span>
                     ) : (
                       <i
-                        className={`bi ${panel === "add" ? "bi-check-circle" : "bi-pencil-square"} me-1`}
+                        className={`bi ${
+                          panel === "add"
+                            ? "bi-check-circle"
+                            : "bi-pencil-square"
+                        } me-1`}
                       ></i>
                     )}
                     {panel === "add" ? "Save" : "Update"}
@@ -619,7 +635,6 @@ export default function Country() {
         </div>
       </div>
 
-      {/* ── Confirm Toggle Modal ──────────────────────────────────── */}
       {confirmModal.show && (
         <div className="modal-backdrop-custom">
           <div className="confirm-modal">
@@ -637,13 +652,20 @@ export default function Country() {
               ?
             </p>
             <div className="d-flex gap-2 justify-content-end">
-              <button className="btn btn-sm btn-success" onClick={handleToggle}>
+              <button
+                className="btn btn-sm btn-success"
+                onClick={handleToggle}
+              >
                 Yes
               </button>
               <button
                 className="btn btn-sm btn-danger"
                 onClick={() =>
-                  setConfirmModal({ show: false, sno: null, currentStatus: "" })
+                  setConfirmModal({
+                    show: false,
+                    sno: null,
+                    currentStatus: "",
+                  })
                 }
               >
                 No

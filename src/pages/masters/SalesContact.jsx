@@ -36,13 +36,11 @@ export default function SalesContact() {
     if (!isLoggedIn()) navigate("/login", { replace: true });
   }, []);
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
   const showAlert = (msg, type) => {
     setAlert({ msg, type });
     setTimeout(() => setAlert({ msg: "", type: "" }), 3500);
   };
 
-  // ── Fetch ─────────────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     try {
       const { data } = await axios.get(API, { headers });
@@ -58,7 +56,6 @@ export default function SalesContact() {
     fetchData();
   }, [fetchData]);
 
-  // ── Live Search ───────────────────────────────────────────────────────────
   const handleLiveSearch = (e) => {
     const val = e.target.value;
     setSearchVal(val);
@@ -68,7 +65,7 @@ export default function SalesContact() {
         ? allData
         : allData.filter((row) =>
             [
-              row.salescontactname,
+              row.sales_contact_name, // ✅ FIXED
               row.email,
               row.mobile,
               row.landline,
@@ -87,11 +84,9 @@ export default function SalesContact() {
     setPage(1);
   };
 
-  // ── Pagination ────────────────────────────────────────────────────────────
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  // ── Panel ─────────────────────────────────────────────────────────────────
   const openAdd = () => {
     setForm(emptyForm);
     setFieldErrors({});
@@ -102,13 +97,13 @@ export default function SalesContact() {
   const openEdit = (row) => {
     if (row.status === "Inactive") {
       showAlert(
-        `"${row.salescontactname}" is Inactive and cannot be edited.`,
+        `"${row.sales_contact_name}" is Inactive and cannot be edited.`, // ✅ FIXED
         "warning",
       );
       return;
     }
     setForm({
-      salescontactname: row.salescontactname,
+      salescontactname: row.sales_contact_name, // ✅ FIXED
       email: row.email || "",
       mobile: row.mobile || "",
       landline: row.landline || "",
@@ -125,7 +120,6 @@ export default function SalesContact() {
     setFieldErrors({});
   };
 
-  // ── Duplicate checks (on blur) ────────────────────────────────────────────
   const checkField = async (field, value) => {
     if (!value.trim()) return;
     try {
@@ -144,7 +138,6 @@ export default function SalesContact() {
     } catch {}
   };
 
-  // ── ADD ───────────────────────────────────────────────────────────────────
   const handleAdd = async (e) => {
     e.preventDefault();
     if (Object.keys(fieldErrors).length > 0) return;
@@ -164,7 +157,6 @@ export default function SalesContact() {
     }
   };
 
-  // ── EDIT ──────────────────────────────────────────────────────────────────
   const handleEdit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -187,7 +179,6 @@ export default function SalesContact() {
     }
   };
 
-  // ── TOGGLE ────────────────────────────────────────────────────────────────
   const handleToggle = async () => {
     const { sno, currentStatus } = confirmModal;
     const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
@@ -204,12 +195,10 @@ export default function SalesContact() {
     }
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
       <DashboardNavbar />
       <div className="container-fluid px-3 py-3">
-        {/* Breadcrumb */}
         <div className="d-flex align-items-center gap-2 mb-3">
           <button
             className="btn btn-sm back-btn"
@@ -232,7 +221,6 @@ export default function SalesContact() {
           </div>
         )}
 
-        {/* ── Live Search Toolbar ───────────────────────────────────── */}
         <div className="master-toolbar mb-3 d-flex flex-wrap align-items-center gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
@@ -270,9 +258,7 @@ export default function SalesContact() {
           </div>
         </div>
 
-        {/* ── Table + Panel ────────────────────────────────────────── */}
         <div className="d-flex gap-3" style={{ minHeight: "60vh" }}>
-          {/* Table */}
           <div
             className="master-table-wrapper"
             style={{
@@ -312,7 +298,8 @@ export default function SalesContact() {
                       }
                     >
                       <td>{(page - 1) * PAGE_SIZE + idx + 1}</td>
-                      <td>{row.salescontactname}</td>
+                      {/* ✅ FIXED: DB column is sales_contact_name */}
+                      <td>{row.sales_contact_name}</td>
                       <td>{row.email}</td>
                       <td>{row.mobile || "—"}</td>
                       <td>{row.landline || "—"}</td>
@@ -336,7 +323,11 @@ export default function SalesContact() {
                           </button>
                         ) : (
                           <span
-                            className={`badge ${row.status === "Active" ? "bg-success" : "bg-secondary"}`}
+                            className={`badge ${
+                              row.status === "Active"
+                                ? "bg-success"
+                                : "bg-secondary"
+                            }`}
                           >
                             {row.status}
                           </span>
@@ -348,7 +339,6 @@ export default function SalesContact() {
               </tbody>
             </table>
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="d-flex justify-content-between align-items-center mt-2 px-1">
                 <small className="text-muted">
@@ -365,7 +355,9 @@ export default function SalesContact() {
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
                     .filter(
                       (p) =>
-                        p === 1 || p === totalPages || Math.abs(p - page) <= 2,
+                        p === 1 ||
+                        p === totalPages ||
+                        Math.abs(p - page) <= 2,
                     )
                     .map((p, i, arr) => (
                       <>
@@ -379,7 +371,11 @@ export default function SalesContact() {
                         )}
                         <button
                           key={p}
-                          className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
+                          className={`btn btn-sm ${
+                            page === p
+                              ? "btn-primary-custom"
+                              : "btn-outline-secondary"
+                          }`}
                           onClick={() => setPage(p)}
                         >
                           {p}
@@ -398,7 +394,6 @@ export default function SalesContact() {
             )}
           </div>
 
-          {/* ── Side Panel ───────────────────────────────────────── */}
           {panel && (
             <div className="master-side-panel" style={{ flex: "0 0 38%" }}>
               <div className="panel-header d-flex justify-content-between align-items-center mb-3">
@@ -407,7 +402,11 @@ export default function SalesContact() {
                   style={{ color: "#800000", fontWeight: 700 }}
                 >
                   <i
-                    className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}
+                    className={`bi ${
+                      panel === "add"
+                        ? "bi-plus-circle-fill"
+                        : "bi-pencil-fill"
+                    } me-2`}
                   ></i>
                   {panel === "add"
                     ? "Create Sales Contact"
@@ -425,15 +424,18 @@ export default function SalesContact() {
                 onSubmit={panel === "add" ? handleAdd : handleEdit}
                 noValidate
               >
-                {/* Name — locked in edit */}
                 <div className="mb-3">
                   <label className="form-label panel-label">
                     Name{" "}
-                    {panel === "add" && <span className="text-danger">*</span>}
+                    {panel === "add" && (
+                      <span className="text-danger">*</span>
+                    )}
                   </label>
                   <input
                     type="text"
-                    className={`form-control form-control-sm ${fieldErrors.name ? "is-invalid" : ""}`}
+                    className={`form-control form-control-sm ${
+                      fieldErrors.name ? "is-invalid" : ""
+                    }`}
                     value={form.salescontactname}
                     onChange={(e) => {
                       setForm({ ...form, salescontactname: e.target.value });
@@ -460,15 +462,18 @@ export default function SalesContact() {
                   )}
                 </div>
 
-                {/* Email — locked in edit */}
                 <div className="mb-3">
                   <label className="form-label panel-label">
                     Email{" "}
-                    {panel === "add" && <span className="text-danger">*</span>}
+                    {panel === "add" && (
+                      <span className="text-danger">*</span>
+                    )}
                   </label>
                   <input
                     type="email"
-                    className={`form-control form-control-sm ${fieldErrors.email ? "is-invalid" : ""}`}
+                    className={`form-control form-control-sm ${
+                      fieldErrors.email ? "is-invalid" : ""
+                    }`}
                     value={form.email}
                     onChange={(e) => {
                       setForm({ ...form, email: e.target.value });
@@ -494,12 +499,13 @@ export default function SalesContact() {
                   )}
                 </div>
 
-                {/* Mobile — editable always */}
                 <div className="mb-3">
                   <label className="form-label panel-label">Mobile</label>
                   <input
                     type="text"
-                    className={`form-control form-control-sm ${fieldErrors.mobile ? "is-invalid" : ""}`}
+                    className={`form-control form-control-sm ${
+                      fieldErrors.mobile ? "is-invalid" : ""
+                    }`}
                     value={form.mobile}
                     onChange={(e) => {
                       setForm({ ...form, mobile: e.target.value });
@@ -516,16 +522,19 @@ export default function SalesContact() {
                     maxLength={10}
                   />
                   {fieldErrors.mobile && (
-                    <div className="invalid-feedback">{fieldErrors.mobile}</div>
+                    <div className="invalid-feedback">
+                      {fieldErrors.mobile}
+                    </div>
                   )}
                 </div>
 
-                {/* Landline — editable always */}
                 <div className="mb-4">
                   <label className="form-label panel-label">Landline</label>
                   <input
                     type="text"
-                    className={`form-control form-control-sm ${fieldErrors.landline ? "is-invalid" : ""}`}
+                    className={`form-control form-control-sm ${
+                      fieldErrors.landline ? "is-invalid" : ""
+                    }`}
                     value={form.landline}
                     onChange={(e) => {
                       setForm({ ...form, landline: e.target.value });
@@ -552,13 +561,19 @@ export default function SalesContact() {
                   <button
                     type="submit"
                     className="btn btn-sm btn-primary-custom flex-fill"
-                    disabled={loading || Object.keys(fieldErrors).length > 0}
+                    disabled={
+                      loading || Object.keys(fieldErrors).length > 0
+                    }
                   >
                     {loading ? (
                       <span className="spinner-border spinner-border-sm me-1"></span>
                     ) : (
                       <i
-                        className={`bi ${panel === "add" ? "bi-check-circle" : "bi-pencil-square"} me-1`}
+                        className={`bi ${
+                          panel === "add"
+                            ? "bi-check-circle"
+                            : "bi-pencil-square"
+                        } me-1`}
                       ></i>
                     )}
                     {panel === "add" ? "Save" : "Update"}
@@ -577,7 +592,6 @@ export default function SalesContact() {
         </div>
       </div>
 
-      {/* ── Confirm Toggle Modal ──────────────────────────────────── */}
       {confirmModal.show && (
         <div className="modal-backdrop-custom">
           <div className="confirm-modal">
@@ -595,13 +609,20 @@ export default function SalesContact() {
               ?
             </p>
             <div className="d-flex gap-2 justify-content-end">
-              <button className="btn btn-sm btn-success" onClick={handleToggle}>
+              <button
+                className="btn btn-sm btn-success"
+                onClick={handleToggle}
+              >
                 Yes
               </button>
               <button
                 className="btn btn-sm btn-danger"
                 onClick={() =>
-                  setConfirmModal({ show: false, sno: null, currentStatus: "" })
+                  setConfirmModal({
+                    show: false,
+                    sno: null,
+                    currentStatus: "",
+                  })
                 }
               >
                 No
@@ -613,4 +634,3 @@ export default function SalesContact() {
     </>
   );
 }
-
