@@ -73,11 +73,11 @@ export default function Country() {
         ? allData
         : allData.filter((row) =>
             [
-              row.Country_code,       // ✅ FIXED
-              row.Country_name,       // ✅ FIXED
+              row.Country_code, // ✅ FIXED
+              row.Country_name, // ✅ FIXED
               row.Region,
               row.Currency,
-              row.Currency_Name,      // ✅ FIXED
+              row.Currency_Name, // ✅ FIXED
               row.Conversion_rate != null ? String(row.Conversion_rate) : "",
               row.status,
             ]
@@ -113,11 +113,11 @@ export default function Country() {
       return;
     }
     setForm({
-      Country_code: row.Country_code || "",       // ✅ FIXED
-      Country_name: row.Country_name || "",       // ✅ FIXED
+      Country_code: row.Country_code || "", // ✅ FIXED
+      Country_name: row.Country_name || "", // ✅ FIXED
       Region: row.Region || "",
       Currency: row.Currency || "",
-      Currency_Name: row.Currency_Name || "",     // ✅ FIXED
+      Currency_Name: row.Currency_Name || "", // ✅ FIXED
       Conversion_rate: row.Conversion_rate ?? "", // ✅ FIXED
     });
     setEditSno(row.Sno);
@@ -182,7 +182,7 @@ export default function Country() {
     try {
       const { data } = await axios.put(
         `${API}/${editSno}`,
-        { Region: form.Region, Conversion_rate: form.Conversion_rate }, // ✅ FIXED
+        { Region: form.Region, Conversionrate: form.Conversion_rate }, // ✅ FIXED: key name matches backend
         { headers },
       );
       showAlert(data.message, "success");
@@ -390,9 +390,7 @@ export default function Country() {
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
                     .filter(
                       (p) =>
-                        p === 1 ||
-                        p === totalPages ||
-                        Math.abs(p - page) <= 2,
+                        p === 1 || p === totalPages || Math.abs(p - page) <= 2,
                     )
                     .map((p, i, arr) => (
                       <>
@@ -435,9 +433,7 @@ export default function Country() {
                 >
                   <i
                     className={`bi ${
-                      panel === "add"
-                        ? "bi-plus-circle-fill"
-                        : "bi-pencil-fill"
+                      panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"
                     } me-2`}
                   ></i>
                   {panel === "add" ? "Create Country" : "Modify Country"}
@@ -458,9 +454,7 @@ export default function Country() {
                 <div className="mb-3">
                   <label className="form-label panel-label">
                     Country Code{" "}
-                    {panel === "add" && (
-                      <span className="text-danger">*</span>
-                    )}
+                    {panel === "add" && <span className="text-danger">*</span>}
                     <small className="text-muted ms-1">(e.g. IND)</small>
                   </label>
                   <input
@@ -494,9 +488,7 @@ export default function Country() {
                 <div className="mb-3">
                   <label className="form-label panel-label">
                     Country Name{" "}
-                    {panel === "add" && (
-                      <span className="text-danger">*</span>
-                    )}
+                    {panel === "add" && <span className="text-danger">*</span>}
                   </label>
                   <input
                     type="text"
@@ -535,9 +527,7 @@ export default function Country() {
                 <div className="mb-3">
                   <label className="form-label panel-label">
                     Currency Code{" "}
-                    {panel === "add" && (
-                      <span className="text-danger">*</span>
-                    )}
+                    {panel === "add" && <span className="text-danger">*</span>}
                     <small className="text-muted ms-1">(e.g. INR)</small>
                   </label>
                   <input
@@ -580,8 +570,7 @@ export default function Country() {
                 {/* Conversion Rate */}
                 <div className="mb-4">
                   <label className="form-label panel-label">
-                    Conversion to USD{" "}
-                    <span className="text-danger">*</span>
+                    Conversion to USD <span className="text-danger">*</span>
                   </label>
                   <input
                     type="number"
@@ -604,9 +593,7 @@ export default function Country() {
                   <button
                     type="submit"
                     className="btn btn-sm btn-primary-custom flex-fill"
-                    disabled={
-                      loading || Object.keys(fieldErrors).length > 0
-                    }
+                    disabled={loading || Object.keys(fieldErrors).length > 0}
                   >
                     {loading ? (
                       <span className="spinner-border spinner-border-sm me-1"></span>
@@ -652,10 +639,7 @@ export default function Country() {
               ?
             </p>
             <div className="d-flex gap-2 justify-content-end">
-              <button
-                className="btn btn-sm btn-success"
-                onClick={handleToggle}
-              >
+              <button className="btn btn-sm btn-success" onClick={handleToggle}>
                 Yes
               </button>
               <button

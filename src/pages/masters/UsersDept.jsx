@@ -97,11 +97,11 @@ export default function UsersDept() {
       return;
     }
     setForm({
-      deptuserid: row.dept_user_id,   // ✅ map dept_user_id → form field
+      deptuserid: row.dept_user_id, // ✅ map dept_user_id → form field
       Username: row.Username || "",
       Email: row.Email || "",
     });
-    setEditOrigId(row.dept_user_id);   // ✅ use dept_user_id
+    setEditOrigId(row.dept_user_id); // ✅ use dept_user_id
     setIdError("");
     setAlert({ msg: "", type: "" });
     setPanel("edit");
@@ -148,7 +148,7 @@ export default function UsersDept() {
     try {
       const { data } = await axios.put(
         `${API}/${encodeURIComponent(editOrigId)}`,
-        { Email: form.Email },
+        { Username: form.Username, Email: form.Email },
         { headers },
       );
       showAlert(data.message, "success");
@@ -336,9 +336,7 @@ export default function UsersDept() {
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
                     .filter(
                       (p) =>
-                        p === 1 ||
-                        p === totalPages ||
-                        Math.abs(p - page) <= 2,
+                        p === 1 || p === totalPages || Math.abs(p - page) <= 2,
                     )
                     .map((p, i, arr) => (
                       <>
@@ -381,9 +379,7 @@ export default function UsersDept() {
                 >
                   <i
                     className={`bi ${
-                      panel === "add"
-                        ? "bi-plus-circle-fill"
-                        : "bi-pencil-fill"
+                      panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"
                     } me-2`}
                   ></i>
                   {panel === "add"
@@ -459,8 +455,11 @@ export default function UsersDept() {
                       type="text"
                       className="form-control form-control-sm"
                       value={form.Username}
-                      readOnly
-                      style={{ backgroundColor: "#e9ecef" }}
+                      onChange={(e) =>
+                        setForm({ ...form, Username: e.target.value })
+                      }
+                      required
+                      placeholder="Enter Name"
                     />
                   )}
                 </div>
