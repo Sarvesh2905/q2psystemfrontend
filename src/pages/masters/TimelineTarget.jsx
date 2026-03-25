@@ -5,9 +5,9 @@ import DashboardNavbar from "../../components/DashboardNavbar";
 import { getAuth, isLoggedIn } from "../../utils/auth";
 
 const API = "http://localhost:5001/api/timeline-target";
-const PAGE_SIZE = 50;
+const PAGESIZE = 50;
 
-const NUMERIC_FIELDS = [
+const NUMERICFIELDS = [
   { key: "Enquiry", label: "Enquiry" },
   { key: "Technicaloffer", label: "Technical Offer" },
   { key: "Pricedoffer", label: "Priced Offer" },
@@ -45,6 +45,12 @@ export default function TimelineTarget() {
   const [formErrors, setFormErrors] = useState({});
   const [alert, setAlert] = useState({ msg: "", type: "" });
   const [loading, setLoading] = useState(false);
+  const [confirmModal, setConfirmModal] = useState({
+    show: false,
+    sno: null,
+    currentStatus: "",
+    name: "",
+  });
 
   const headers = { Authorization: `Bearer ${token}` };
 
@@ -52,7 +58,7 @@ export default function TimelineTarget() {
     if (!isLoggedIn()) navigate("/login", { replace: true });
   }, []);
 
-  // ── Fetch table data ──────────────────────────────────────────────────────
+  // Fetch table data
   const fetchData = useCallback(async () => {
     try {
       const { data } = await axios.get(API, { headers });
@@ -68,7 +74,7 @@ export default function TimelineTarget() {
     fetchData();
   }, [fetchData]);
 
-  // ── Fetch available products ───────────────────────────────────────────────
+  // Fetch available products (not yet assigned)
   const fetchAvailProducts = useCallback(async () => {
     try {
       const { data } = await axios.get(`${API}/available-products`, {
@@ -83,7 +89,7 @@ export default function TimelineTarget() {
     setTimeout(() => setAlert({ msg: "", type: "" }), 4500);
   };
 
-  // ── Live Search ───────────────────────────────────────────────────────────
+  // Live Search
   const handleLiveSearch = (e) => {
     const val = e.target.value;
     setSearchVal(val);
@@ -92,7 +98,7 @@ export default function TimelineTarget() {
       !q
         ? allData
         : allData.filter((row) =>
-            (row.Product || "").toLowerCase().includes(q),
+            (row.Product ?? "").toLowerCase().includes(q),
           ),
     );
     setPage(1);
@@ -104,25 +110,25 @@ export default function TimelineTarget() {
     setPage(1);
   };
 
-  // ── Pagination ────────────────────────────────────────────────────────────
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.ceil(filtered.length / PAGESIZE);
+  const paginated = filtered.slice((page - 1) * PAGESIZE, page * PAGESIZE);
 
   const pageNumbers = Array.from(
     { length: totalPages },
     (_, i) => i + 1,
   ).filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2);
 
-  // ── Panel helpers ──────────────────────────────────────────────────────────
+  // ✅ FIXED: openAdd clears alert
   const openAdd = async () => {
     await fetchAvailProducts();
     setForm(emptyForm);
     setDupError("");
     setFormErrors({});
-    setAlert({ msg: "", type: "" });
+    setAlert({ msg: "", type: "" }); // ✅
     setPanel("add");
   };
 
+  // ✅ FIXED: handleRowDblClick clears alert
   const handleRowDblClick = (row) => {
     setEditSno(row.Sno);
     setEditProductLocked(row.Product);
@@ -137,7 +143,7 @@ export default function TimelineTarget() {
     });
     setDupError("");
     setFormErrors({});
-    setAlert({ msg: "", type: "" });
+    setAlert({ msg: "", type: "" }); // ✅
     setPanel("edit");
   };
 
@@ -150,10 +156,10 @@ export default function TimelineTarget() {
     setEditProductLocked("");
   };
 
-  // ── Validate numeric fields ────────────────────────────────────────────────
+  // Validate numeric fields
   const validateNumerics = (f) => {
     const errs = {};
-    NUMERIC_FIELDS.forEach(({ key, label }) => {
+    NUMERICFIELDS.forEach(({ key, label }) => {
       if (f[key] === "" || f[key] === null || f[key] === undefined)
         errs[key] = `${label} is required.`;
       else if (isNaN(Number(f[key])) || Number(f[key]) < 0)
@@ -162,7 +168,7 @@ export default function TimelineTarget() {
     return errs;
   };
 
-  // ── ADD ───────────────────────────────────────────────────────────────────
+  // ADD
   const handleAdd = async (e) => {
     e.preventDefault();
     if (dupError) return;
@@ -187,7 +193,7 @@ export default function TimelineTarget() {
     }
   };
 
-  // ── EDIT ──────────────────────────────────────────────────────────────────
+  // EDIT
   const handleEdit = async (e) => {
     e.preventDefault();
     const errs = validateNumerics(form);
@@ -211,10 +217,27 @@ export default function TimelineTarget() {
     }
   };
 
-  // ── Numeric input change ───────────────────────────────────────────────────
+  // TOGGLE
+  const handleToggle = async () => {
+    const { sno, currentStatus } = confirmModal;
+    const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
+    setConfirmModal({ show: false, sno: null, currentStatus: "", name: "" });
+    try {
+      await axios.patch(
+        `${API}/toggle/${sno}`,
+        { status: newStatus },
+        { headers },
+      );
+      fetchData();
+    } catch {
+      showAlert("Failed to toggle status.", "danger");
+    }
+  };
+
+  // Numeric input handler
   const handleNumericChange = (key, val) => {
     setForm((f) => ({ ...f, [key]: val }));
-    setFormErrors((prev) => ({ ...prev, [key]: "" }));
+    setFormErrors((prev) => ({ ...prev, [key]: undefined }));
   };
 
   return (
@@ -227,7 +250,8 @@ export default function TimelineTarget() {
             className="btn btn-sm back-btn"
             onClick={() => navigate("/masters")}
           >
-            <i className="bi bi-arrow-left-circle-fill me-1"></i>Back
+            <i className="bi bi-arrow-left-circle-fill me-1" />
+            Back
           </button>
           <span className="text-muted" style={{ fontSize: "0.88rem" }}>
             Masters &rsaquo; <strong>Timeline Target</strong>
@@ -235,16 +259,18 @@ export default function TimelineTarget() {
         </div>
 
         <h5 className="master-page-title mb-3">
-          <i className="bi bi-clock-history me-2"></i>Timeline Target Master
+          <i className="bi bi-bar-chart-steps me-2" />
+          Timeline Target Master
         </h5>
 
+        {/* Alert */}
         {alert.msg && (
           <div className={`alert alert-${alert.type} py-2`} role="alert">
             {alert.msg}
           </div>
         )}
 
-        {/* ── Live Search Toolbar ───────────────────────────────────── */}
+        {/* Toolbar */}
         <div className="master-toolbar mb-3 d-flex flex-wrap align-items-center gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
@@ -253,7 +279,7 @@ export default function TimelineTarget() {
             <input
               type="text"
               className="form-control form-control-sm"
-              style={{ width: "220px" }}
+              style={{ width: 220 }}
               placeholder="Search by Product..."
               value={searchVal}
               onChange={handleLiveSearch}
@@ -264,25 +290,27 @@ export default function TimelineTarget() {
               className="btn btn-sm btn-outline-secondary align-self-end"
               onClick={handleClear}
             >
-              <i className="bi bi-x-circle me-1"></i>Clear
+              <i className="bi bi-x-circle me-1" />
+              Clear
             </button>
           )}
           <div className="ms-auto d-flex align-items-center gap-2">
             <span className="text-muted" style={{ fontSize: "0.82rem" }}>
-              Records: <strong>{filtered.length}</strong>
+              Records <strong>{filtered.length}</strong>
             </span>
             {canEdit && (
               <button
                 className="btn btn-sm btn-primary-custom"
                 onClick={openAdd}
               >
-                <i className="bi bi-plus-circle-fill me-1"></i>Add
+                <i className="bi bi-plus-circle-fill me-1" />
+                Add
               </button>
             )}
           </div>
         </div>
 
-        {/* ── Table + Panel ──────────────────────────────────────────── */}
+        {/* Table + Panel */}
         <div className="d-flex gap-3" style={{ minHeight: "60vh" }}>
           {/* Table */}
           <div
@@ -297,19 +325,23 @@ export default function TimelineTarget() {
               <thead>
                 <tr>
                   <th style={{ width: "5%" }}>S.No</th>
-                  <th style={{ width: panel ? "22%" : "18%" }}>Product</th>
-                  <th className="text-center">Enquiry</th>
-                  <th className="text-center">Tech. Offer</th>
-                  <th className="text-center">Priced Offer</th>
-                  <th className="text-center">PB Order</th>
-                  <th className="text-center">Regret</th>
-                  <th className="text-center">Cancelled</th>
+                  <th style={{ width: "14%" }}>Product</th>
+                  <th style={{ width: "10%" }}>Enquiry</th>
+                  <th style={{ width: "10%" }}>Tech. Offer</th>
+                  <th style={{ width: "10%" }}>Priced Offer</th>
+                  <th style={{ width: "12%" }}>PB Order</th>
+                  <th style={{ width: "10%" }}>Regret</th>
+                  <th style={{ width: "10%" }}>Cancelled</th>
+                  {canEdit && <th style={{ width: "10%" }}>Action</th>}
                 </tr>
               </thead>
               <tbody>
                 {paginated.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center text-muted py-4">
+                    <td
+                      colSpan={canEdit ? 9 : 8}
+                      className="text-center text-muted py-4"
+                    >
                       No records found.
                     </td>
                   </tr>
@@ -325,25 +357,47 @@ export default function TimelineTarget() {
                           : ""
                       }
                     >
-                      <td>{(page - 1) * PAGE_SIZE + idx + 1}</td>
+                      <td>{(page - 1) * PAGESIZE + idx + 1}</td>
                       <td>
                         <span
                           className="badge"
                           style={{
                             backgroundColor: "#800000",
                             color: "#fff",
-                            fontSize: "0.76rem",
+                            fontSize: "0.78rem",
                           }}
                         >
                           {row.Product}
                         </span>
                       </td>
-                      <td className="text-center">{row.Enquiry}</td>
-                      <td className="text-center">{row.Technicaloffer}</td>
-                      <td className="text-center">{row.Pricedoffer}</td>
-                      <td className="text-center">{row.Pricebookorder}</td>
-                      <td className="text-center">{row.Regret}</td>
-                      <td className="text-center">{row.Cancelled}</td>
+                      <td>{row.Enquiry}</td>
+                      <td>{row.Technicaloffer}</td>
+                      <td>{row.Pricedoffer}</td>
+                      <td>{row.Pricebookorder}</td>
+                      <td>{row.Regret}</td>
+                      <td>{row.Cancelled}</td>
+                      {canEdit && (
+                        <td className="text-center">
+                          <button
+                            className={`btn btn-xs status-btn ${
+                              row.status === "Active"
+                                ? "status-active"
+                                : "status-inactive"
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmModal({
+                                show: true,
+                                sno: row.Sno,
+                                currentStatus: row.status,
+                                name: row.Product,
+                              });
+                            }}
+                          >
+                            {row.status}
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}
@@ -362,15 +416,23 @@ export default function TimelineTarget() {
                     disabled={page === 1}
                     onClick={() => setPage((p) => p - 1)}
                   >
-                    <i className="bi bi-chevron-left"></i>
+                    <i className="bi bi-chevron-left" />
                   </button>
-                  {pageNumbers.map((p, i, arr) => (
-                    <>
-                      {i > 0 && arr[i - 1] !== p - 1 && (
+                  {pageNumbers.map((p, i, arr) =>
+                    i > 0 && arr[i - 1] !== p - 1 ? (
+                      <>
                         <span key={`e${p}`} className="btn btn-sm disabled">
                           …
                         </span>
-                      )}
+                        <button
+                          key={p}
+                          className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
+                          onClick={() => setPage(p)}
+                        >
+                          {p}
+                        </button>
+                      </>
+                    ) : (
                       <button
                         key={p}
                         className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
@@ -378,153 +440,122 @@ export default function TimelineTarget() {
                       >
                         {p}
                       </button>
-                    </>
-                  ))}
+                    ),
+                  )}
                   <button
                     className="btn btn-sm btn-outline-secondary"
                     disabled={page === totalPages}
                     onClick={() => setPage((p) => p + 1)}
                   >
-                    <i className="bi bi-chevron-right"></i>
+                    <i className="bi bi-chevron-right" />
                   </button>
                 </div>
               </div>
             )}
           </div>
 
-          {/* ── Side Panel ──────────────────────────────────────────── */}
+          {/* Side Panel */}
           {panel && (
-            <div className="master-side-panel" style={{ flex: "0 0 41%" }}>
+            <div
+              className="master-side-panel"
+              style={{ flex: "0 0 41%", maxHeight: "82vh", overflowY: "auto" }}
+            >
               <div className="panel-header d-flex justify-content-between align-items-center mb-3">
                 <h6
                   className="mb-0"
                   style={{ color: "#800000", fontWeight: 700 }}
                 >
                   <i
-                    className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}
-                  ></i>
+                    className={`bi ${
+                      panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"
+                    } me-2`}
+                  />
                   {panel === "add"
                     ? "Create Timeline Target"
-                    : "Edit Timeline Target"}
+                    : "Modify Timeline Target"}
                 </h6>
                 <button
                   className="btn btn-sm btn-outline-secondary"
                   onClick={closePanel}
                 >
-                  <i className="bi bi-x-lg"></i>
+                  <i className="bi bi-x-lg" />
                 </button>
               </div>
-
-              {dupError && (
-                <div
-                  className="alert alert-danger py-1 mb-3"
-                  style={{ fontSize: "0.8rem" }}
-                >
-                  <i className="bi bi-exclamation-triangle-fill me-1"></i>
-                  {dupError}
-                </div>
-              )}
 
               <form
                 onSubmit={panel === "add" ? handleAdd : handleEdit}
                 noValidate
               >
-                {/* Product field */}
+                {/* Product — dropdown on add, locked in edit */}
                 <div className="mb-3">
                   <label className="form-label panel-label">
                     Product <span className="text-danger">*</span>
                   </label>
                   {panel === "add" ? (
-                    <>
-                      <select
-                        className={`form-select form-select-sm ${dupError ? "is-invalid" : ""}`}
-                        value={form.Product}
-                        onChange={(e) => {
-                          setForm((f) => ({ ...f, Product: e.target.value }));
-                          setDupError("");
-                        }}
-                        required
-                        autoFocus
-                      >
-                        <option value="">-- Select Product --</option>
-                        {availProducts.map((p) => (
-                          <option key={p} value={p}>
-                            {p}
-                          </option>
-                        ))}
-                      </select>
-                      <small
-                        className="text-muted"
-                        style={{ fontSize: "0.74rem" }}
-                      >
-                        Only products without existing targets are shown.
-                      </small>
-                    </>
+                    <select
+                      className="form-select form-select-sm"
+                      value={form.Product}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, Product: e.target.value }))
+                      }
+                      required
+                    >
+                      <option value="">-- Select Product --</option>
+                      {availProducts.map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
+                    </select>
                   ) : (
                     <input
                       type="text"
                       className="form-control form-control-sm"
                       value={editProductLocked}
                       readOnly
-                      style={{
-                        backgroundColor: "#f5f5f5",
-                        cursor: "not-allowed",
-                        fontWeight: 600,
-                      }}
+                      style={{ backgroundColor: "#e9ecef" }}
                     />
                   )}
                 </div>
 
-                {/* All 6 numeric fields */}
-                <div className="row g-2 mb-4">
-                  {NUMERIC_FIELDS.map(({ key, label }) => (
-                    <div className="col-6" key={key}>
-                      <label
-                        className="form-label panel-label"
-                        style={{ fontSize: "0.78rem" }}
-                      >
-                        {label} <span className="text-danger">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        className={`form-control form-control-sm ${formErrors[key] ? "is-invalid" : ""}`}
-                        value={form[key]}
-                        onChange={(e) =>
-                          handleNumericChange(key, e.target.value)
-                        }
-                        required
-                        placeholder="0"
-                        autoFocus={panel === "edit" && key === "Enquiry"}
-                      />
-                      {formErrors[key] && (
-                        <div
-                          className="invalid-feedback"
-                          style={{ fontSize: "0.72rem" }}
-                        >
-                          {formErrors[key]}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                {/* Numeric fields */}
+                {NUMERICFIELDS.map(({ key, label }) => (
+                  <div className="mb-2" key={key}>
+                    <label className="form-label panel-label">
+                      {label} (days) <span className="text-danger">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      className={`form-control form-control-sm ${
+                        formErrors[key] ? "is-invalid" : ""
+                      }`}
+                      value={form[key]}
+                      onChange={(e) => handleNumericChange(key, e.target.value)}
+                      placeholder={`Enter ${label}`}
+                      required
+                    />
+                    {formErrors[key] && (
+                      <div className="invalid-feedback">{formErrors[key]}</div>
+                    )}
+                  </div>
+                ))}
 
-                <div className="d-flex gap-2">
+                <div className="d-flex gap-2 mt-3">
                   <button
                     type="submit"
                     className="btn btn-sm btn-primary-custom flex-fill"
-                    disabled={
-                      loading ||
-                      (panel === "add" && (!!dupError || !form.Product))
-                    }
+                    disabled={loading || !!dupError}
                   >
-                    {loading ? (
-                      <span className="spinner-border spinner-border-sm me-1"></span>
-                    ) : (
-                      <i
-                        className={`bi ${panel === "add" ? "bi-check-circle" : "bi-save"} me-1`}
-                      ></i>
+                    {loading && (
+                      <span className="spinner-border spinner-border-sm me-1" />
                     )}
+                    <i
+                      className={`bi ${
+                        panel === "add" ? "bi-check-circle" : "bi-pencil-square"
+                      } me-1`}
+                    />
                     {panel === "add" ? "Save" : "Update"}
                   </button>
                   <button
@@ -540,6 +571,45 @@ export default function TimelineTarget() {
           )}
         </div>
       </div>
+
+      {/* Confirm Toggle Modal */}
+      {confirmModal.show && (
+        <div className="modal-backdrop-custom">
+          <div className="confirm-modal">
+            <h6 className="mb-3" style={{ color: "#800000" }}>
+              <i className="bi bi-exclamation-triangle-fill me-2" />
+              Confirmation
+            </h6>
+            <p className="mb-4" style={{ fontSize: "0.88rem" }}>
+              Do you want to make <strong>{confirmModal.name}</strong>{" "}
+              <strong>
+                {confirmModal.currentStatus === "Active"
+                  ? "Inactive"
+                  : "Active"}
+              </strong>
+              ?
+            </p>
+            <div className="d-flex gap-2 justify-content-end">
+              <button className="btn btn-sm btn-success" onClick={handleToggle}>
+                Yes
+              </button>
+              <button
+                className="btn btn-sm btn-danger"
+                onClick={() =>
+                  setConfirmModal({
+                    show: false,
+                    sno: null,
+                    currentStatus: "",
+                    name: "",
+                  })
+                }
+              >
+                No
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

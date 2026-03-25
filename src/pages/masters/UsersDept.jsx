@@ -5,7 +5,8 @@ import DashboardNavbar from "../../components/DashboardNavbar";
 import { getAuth, isLoggedIn } from "../../utils/auth";
 
 const API = "http://localhost:5001/api/deptusers";
-const PAGE_SIZE = 50;
+const PAGESIZE = 50;
+
 const emptyForm = { deptuserid: "", Username: "", Email: "" };
 
 export default function UsersDept() {
@@ -20,13 +21,15 @@ export default function UsersDept() {
   const [searchVal, setSearchVal] = useState("");
   const [panel, setPanel] = useState(null);
   const [form, setForm] = useState(emptyForm);
-  const [editOrigId, setEditOrigId] = useState("");
+  const [editOrigId, setEditOrigId] = useState(null);
   const [idError, setIdError] = useState("");
   const [alert, setAlert] = useState({ msg: "", type: "" });
+  // ✅ FIXED: added name: "" to confirmModal state
   const [confirmModal, setConfirmModal] = useState({
     show: false,
     sno: null,
     currentStatus: "",
+    name: "",
   });
   const [loading, setLoading] = useState(false);
 
@@ -64,8 +67,8 @@ export default function UsersDept() {
       !q
         ? allData
         : allData.filter((row) =>
-            [row.dept_user_id, row.Username, row.Email, row.status]
-              .map((v) => (v || "").toLowerCase())
+            [row.deptuserid, row.Username, row.Email, row.status]
+              .map((v) => (v ?? "").toLowerCase())
               .some((v) => v.includes(q)),
           ),
     );
@@ -78,8 +81,12 @@ export default function UsersDept() {
     setPage(1);
   };
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.ceil(filtered.length / PAGESIZE);
+  const paginated = filtered.slice((page - 1) * PAGESIZE, page * PAGESIZE);
+  const pageNumbers = Array.from(
+    { length: totalPages },
+    (_, i) => i + 1,
+  ).filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2);
 
   const openAdd = () => {
     setForm(emptyForm);
@@ -91,17 +98,17 @@ export default function UsersDept() {
   const openEdit = (row) => {
     if (row.status === "Inactive") {
       showAlert(
-        `"${row.dept_user_id}" is Inactive and cannot be edited.`,
+        `${row.deptuserid} is Inactive and cannot be edited.`,
         "warning",
       );
       return;
     }
     setForm({
-      deptuserid: row.dept_user_id, // ✅ map dept_user_id → form field
-      Username: row.Username || "",
-      Email: row.Email || "",
+      deptuserid: row.deptuserid,
+      Username: row.Username,
+      Email: row.Email,
     });
-    setEditOrigId(row.dept_user_id); // ✅ use dept_user_id
+    setEditOrigId(row.deptuserid);
     setIdError("");
     setAlert({ msg: "", type: "" });
     setPanel("edit");
@@ -111,6 +118,7 @@ export default function UsersDept() {
     setPanel(null);
     setForm(emptyForm);
     setIdError("");
+    setEditOrigId(null);
   };
 
   const checkDeptUserId = async () => {
@@ -164,10 +172,11 @@ export default function UsersDept() {
     }
   };
 
+  // ✅ FIXED: handleToggle resets name: ""
   const handleToggle = async () => {
     const { sno, currentStatus } = confirmModal;
     const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
-    setConfirmModal({ show: false, sno: null, currentStatus: "" });
+    setConfirmModal({ show: false, sno: null, currentStatus: "", name: "" });
     try {
       await axios.patch(
         `${API}/toggle/${sno}`,
@@ -184,36 +193,42 @@ export default function UsersDept() {
     <>
       <DashboardNavbar />
       <div className="container-fluid px-3 py-3">
+        {/* Breadcrumb */}
         <div className="d-flex align-items-center gap-2 mb-3">
           <button
             className="btn btn-sm back-btn"
             onClick={() => navigate("/masters")}
           >
-            <i className="bi bi-arrow-left-circle-fill me-1"></i>Back
+            <i className="bi bi-arrow-left-circle-fill me-1" />
+            Back
           </button>
           <span className="text-muted" style={{ fontSize: "0.88rem" }}>
-            Masters &rsaquo; <strong>Users Dept</strong>
+            Masters &rsaquo; <strong>Application Engineers</strong>
           </span>
         </div>
 
         <h5 className="master-page-title mb-3">
-          <i className="bi bi-people-fill me-2"></i>Department Users
+          <i className="bi bi-people-fill me-2" />
+          Application Engineers Master
         </h5>
 
         {alert.msg && (
-          <div className={`alert alert-${alert.type} py-2`}>{alert.msg}</div>
+          <div className={`alert alert-${alert.type} py-2`} role="alert">
+            {alert.msg}
+          </div>
         )}
 
+        {/* Toolbar */}
         <div className="master-toolbar mb-3 d-flex flex-wrap align-items-center gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
-              Search (ID / Name / Email / Status)
+              Search ID / Name / Email / Status
             </label>
             <input
               type="text"
               className="form-control form-control-sm"
-              style={{ width: "260px" }}
-              placeholder="Type to filter..."
+              style={{ width: 280 }}
+              placeholder="Type to search..."
               value={searchVal}
               onChange={handleLiveSearch}
             />
@@ -223,25 +238,29 @@ export default function UsersDept() {
               className="btn btn-sm btn-outline-secondary align-self-end"
               onClick={handleClear}
             >
-              <i className="bi bi-x-circle me-1"></i>Clear
+              <i className="bi bi-x-circle me-1" />
+              Clear
             </button>
           )}
           <div className="ms-auto d-flex align-items-center gap-2">
             <span className="text-muted" style={{ fontSize: "0.82rem" }}>
-              Records: <strong>{filtered.length}</strong>
+              Records <strong>{filtered.length}</strong>
             </span>
             {canEdit && (
               <button
                 className="btn btn-sm btn-primary-custom"
                 onClick={openAdd}
               >
-                <i className="bi bi-plus-circle-fill me-1"></i>Add
+                <i className="bi bi-plus-circle-fill me-1" />
+                Add
               </button>
             )}
           </div>
         </div>
 
+        {/* Table + Panel */}
         <div className="d-flex gap-3" style={{ minHeight: "60vh" }}>
+          {/* Table */}
           <div
             className="master-table-wrapper"
             style={{
@@ -256,14 +275,18 @@ export default function UsersDept() {
                   <th style={{ width: "5%" }}>S.No</th>
                   <th style={{ width: "20%" }}>Application Engineer ID</th>
                   <th style={{ width: "30%" }}>Application Engineer Name</th>
-                  <th style={{ width: "35%" }}>Email</th>
-                  <th style={{ width: "10%" }}>Action</th>
+                  <th style={{ width: "30%" }}>Email</th>
+                  <th style={{ width: "10%" }}>Status</th>
+                  {canEdit && <th style={{ width: "5%" }}>Action</th>}
                 </tr>
               </thead>
               <tbody>
                 {paginated.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="text-center text-muted py-4">
+                    <td
+                      colSpan={canEdit ? 6 : 5}
+                      className="text-center text-muted py-4"
+                    >
                       No records found.
                     </td>
                   </tr>
@@ -274,52 +297,60 @@ export default function UsersDept() {
                       onDoubleClick={() => canEdit && openEdit(row)}
                       style={{ cursor: canEdit ? "pointer" : "default" }}
                       className={
-                        panel === "edit" && editOrigId === row.dept_user_id
+                        panel === "edit" && editOrigId === row.deptuserid
                           ? "table-active"
                           : ""
                       }
                     >
-                      <td>{(page - 1) * PAGE_SIZE + idx + 1}</td>
-                      {/* ✅ FIXED: use dept_user_id (matches actual DB column) */}
-                      <td>{row.dept_user_id}</td>
+                      <td>{(page - 1) * PAGESIZE + idx + 1}</td>
+                      <td>
+                        <code
+                          style={{
+                            fontSize: "0.82rem",
+                            backgroundColor: "#f8f0f0",
+                            color: "#800000",
+                            padding: "2px 6px",
+                            borderRadius: "4px",
+                          }}
+                        >
+                          {row.deptuserid}
+                        </code>
+                      </td>
                       <td>{row.Username}</td>
-                      <td>{row.Email}</td>
-                      <td className="text-center">
-                        {canEdit ? (
+                      <td style={{ fontSize: "0.83rem" }}>{row.Email}</td>
+                      <td>
+                        <span
+                          className={`badge ${row.status === "Active" ? "bg-success" : "bg-secondary"}`}
+                        >
+                          {row.status}
+                        </span>
+                      </td>
+                      {canEdit && (
+                        <td className="text-center">
                           <button
-                            className={`btn btn-xs status-btn ${
-                              row.status === "Active"
-                                ? "status-active"
-                                : "status-inactive"
-                            }`}
-                            onClick={() =>
+                            className={`btn btn-xs status-btn ${row.status === "Active" ? "status-active" : "status-inactive"}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // ✅ FIXED: passes name: row.deptuserid
                               setConfirmModal({
                                 show: true,
                                 sno: row.Sno,
                                 currentStatus: row.status,
-                              })
-                            }
+                                name: row.deptuserid,
+                              });
+                            }}
                           >
                             {row.status}
                           </button>
-                        ) : (
-                          <span
-                            className={`badge ${
-                              row.status === "Active"
-                                ? "bg-success"
-                                : "bg-secondary"
-                            }`}
-                          >
-                            {row.status}
-                          </span>
-                        )}
-                      </td>
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}
               </tbody>
             </table>
 
+            {/* Pagination */}
             {totalPages > 1 && (
               <div className="d-flex justify-content-between align-items-center mt-2 px-1">
                 <small className="text-muted">
@@ -331,139 +362,140 @@ export default function UsersDept() {
                     disabled={page === 1}
                     onClick={() => setPage((p) => p - 1)}
                   >
-                    <i className="bi bi-chevron-left"></i>
+                    <i className="bi bi-chevron-left" />
                   </button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter(
-                      (p) =>
-                        p === 1 || p === totalPages || Math.abs(p - page) <= 2,
-                    )
-                    .map((p, i, arr) => (
+                  {pageNumbers.map((p, i, arr) =>
+                    i > 0 && arr[i - 1] !== p - 1 ? (
                       <>
-                        {i > 0 && arr[i - 1] !== p - 1 && (
-                          <span key={`e${p}`} className="btn btn-sm disabled">
-                            …
-                          </span>
-                        )}
+                        <span key={`e${p}`} className="btn btn-sm disabled">
+                          …
+                        </span>
                         <button
                           key={p}
-                          className={`btn btn-sm ${
-                            page === p
-                              ? "btn-primary-custom"
-                              : "btn-outline-secondary"
-                          }`}
+                          className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
                           onClick={() => setPage(p)}
                         >
                           {p}
                         </button>
                       </>
-                    ))}
+                    ) : (
+                      <button
+                        key={p}
+                        className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
+                        onClick={() => setPage(p)}
+                      >
+                        {p}
+                      </button>
+                    ),
+                  )}
                   <button
                     className="btn btn-sm btn-outline-secondary"
                     disabled={page === totalPages}
                     onClick={() => setPage((p) => p + 1)}
                   >
-                    <i className="bi bi-chevron-right"></i>
+                    <i className="bi bi-chevron-right" />
                   </button>
                 </div>
               </div>
             )}
           </div>
 
+          {/* Side Panel */}
           {panel && (
-            <div className="master-side-panel" style={{ flex: "0 0 38%" }}>
+            <div
+              className="master-side-panel"
+              style={{ flex: "0 0 38%", maxHeight: "82vh", overflowY: "auto" }}
+            >
               <div className="panel-header d-flex justify-content-between align-items-center mb-3">
                 <h6
                   className="mb-0"
                   style={{ color: "#800000", fontWeight: 700 }}
                 >
                   <i
-                    className={`bi ${
-                      panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"
-                    } me-2`}
-                  ></i>
+                    className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}
+                  />
                   {panel === "add"
-                    ? "Create Department User"
-                    : "Modify Department User"}
+                    ? "Create Application Engineer"
+                    : "Modify Application Engineer"}
                 </h6>
                 <button
                   className="btn btn-sm btn-outline-secondary"
                   onClick={closePanel}
                 >
-                  <i className="bi bi-x-lg"></i>
+                  <i className="bi bi-x-lg" />
                 </button>
               </div>
+
+              {idError && (
+                <div
+                  className="alert alert-danger py-1 mb-3"
+                  style={{ fontSize: "0.8rem" }}
+                >
+                  <i className="bi bi-exclamation-triangle-fill me-1" />
+                  {idError}
+                </div>
+              )}
 
               <form
                 onSubmit={panel === "add" ? handleAdd : handleEdit}
                 noValidate
               >
+                {/* Application Engineer ID */}
                 <div className="mb-3">
                   <label className="form-label panel-label">
                     Application Engineer ID{" "}
-                    <span className="text-danger">*</span>
+                    {panel === "add" && <span className="text-danger">*</span>}
                   </label>
                   {panel === "add" ? (
-                    <>
-                      <input
-                        type="text"
-                        className={`form-control form-control-sm ${
-                          idError ? "is-invalid" : ""
-                        }`}
-                        value={form.deptuserid}
-                        onChange={(e) => {
-                          setForm({ ...form, deptuserid: e.target.value });
-                          setIdError("");
-                        }}
-                        onBlur={checkDeptUserId}
-                        required
-                        placeholder="Enter ID"
-                      />
-                      {idError && (
-                        <div className="invalid-feedback">{idError}</div>
-                      )}
-                    </>
+                    <input
+                      type="text"
+                      className={`form-control form-control-sm ${idError ? "is-invalid" : ""}`}
+                      value={form.deptuserid}
+                      onChange={(e) => {
+                        setForm({ ...form, deptuserid: e.target.value });
+                        setIdError("");
+                      }}
+                      onBlur={checkDeptUserId}
+                      required
+                      placeholder="Enter ID"
+                      autoFocus
+                    />
                   ) : (
                     <input
                       type="text"
                       className="form-control form-control-sm"
                       value={form.deptuserid}
                       readOnly
-                      style={{ backgroundColor: "#e9ecef" }}
+                      style={{
+                        backgroundColor: "#e9ecef",
+                        fontFamily: "monospace",
+                        fontWeight: 600,
+                      }}
                     />
                   )}
+                  {idError && <div className="invalid-feedback">{idError}</div>}
                 </div>
 
+                {/* Application Engineer Name */}
                 <div className="mb-3">
                   <label className="form-label panel-label">
                     Application Engineer Name{" "}
                     <span className="text-danger">*</span>
                   </label>
-                  {panel === "add" ? (
-                    <input
-                      type="text"
-                      className="form-control form-control-sm"
-                      value={form.Username}
-                      onChange={(e) =>
-                        setForm({ ...form, Username: e.target.value })
-                      }
-                      required
-                      placeholder="Enter Name"
-                    />
-                  ) : (
-                    <input
-                      type="text"
-                      className="form-control form-control-sm"
-                      value={form.Username}
-                      onChange={(e) =>
-                        setForm({ ...form, Username: e.target.value })
-                      }
-                      required
-                      placeholder="Enter Name"
-                    />
-                  )}
+                  <input
+                    type="text"
+                    className="form-control form-control-sm"
+                    value={form.Username}
+                    onChange={(e) =>
+                      setForm({ ...form, Username: e.target.value })
+                    }
+                    required
+                    placeholder="Enter Name"
+                    maxLength={100}
+                  />
                 </div>
 
+                {/* Email */}
                 <div className="mb-4">
                   <label className="form-label panel-label">
                     Email <span className="text-danger">*</span>
@@ -485,19 +517,20 @@ export default function UsersDept() {
                   <button
                     type="submit"
                     className="btn btn-sm btn-primary-custom flex-fill"
-                    disabled={loading || !!idError}
+                    disabled={
+                      loading ||
+                      !!idError ||
+                      !form.deptuserid.trim() ||
+                      !form.Username.trim() ||
+                      !form.Email.trim()
+                    }
                   >
-                    {loading ? (
-                      <span className="spinner-border spinner-border-sm me-1"></span>
-                    ) : (
-                      <i
-                        className={`bi ${
-                          panel === "add"
-                            ? "bi-check-circle"
-                            : "bi-pencil-square"
-                        } me-1`}
-                      ></i>
+                    {loading && (
+                      <span className="spinner-border spinner-border-sm me-1" />
                     )}
+                    <i
+                      className={`bi ${panel === "add" ? "bi-check-circle" : "bi-pencil-square"} me-1`}
+                    />
                     {panel === "add" ? "Save" : "Update"}
                   </button>
                   <button
@@ -514,15 +547,16 @@ export default function UsersDept() {
         </div>
       </div>
 
+      {/* ✅ FIXED: Confirm Modal shows name, resets name: "" */}
       {confirmModal.show && (
         <div className="modal-backdrop-custom">
           <div className="confirm-modal">
             <h6 className="mb-3" style={{ color: "#800000" }}>
-              <i className="bi bi-exclamation-triangle-fill me-2"></i>
+              <i className="bi bi-exclamation-triangle-fill me-2" />
               Confirmation
             </h6>
-            <p className="mb-4">
-              Do you want to make the Dept User{" "}
+            <p className="mb-4" style={{ fontSize: "0.88rem" }}>
+              Do you want to make <code>{confirmModal.name}</code>{" "}
               <strong>
                 {confirmModal.currentStatus === "Active"
                   ? "Inactive"
@@ -541,6 +575,7 @@ export default function UsersDept() {
                     show: false,
                     sno: null,
                     currentStatus: "",
+                    name: "",
                   })
                 }
               >

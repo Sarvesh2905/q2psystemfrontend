@@ -5,7 +5,7 @@ import DashboardNavbar from "../../components/DashboardNavbar";
 import { getAuth, isLoggedIn } from "../../utils/auth";
 
 const API = "http://localhost:5001/api/gereference";
-const PAGE_SIZE = 50;
+const PAGESIZE = 50;
 
 const emptyForm = { Customerpartno: "", Cftipartno: "" };
 
@@ -26,6 +26,7 @@ export default function GEReference() {
   const [cftiOptions, setCftiOptions] = useState([]);
   const [fieldErrors, setFieldErrors] = useState({});
   const [alert, setAlert] = useState({ msg: "", type: "" });
+  // ✅ FIXED: label included in initial state
   const [confirmModal, setConfirmModal] = useState({
     show: false,
     sno: null,
@@ -40,7 +41,7 @@ export default function GEReference() {
     if (!isLoggedIn()) navigate("/login", { replace: true });
   }, []);
 
-  // ── Load CFTI dropdown ────────────────────────────────────────────────────
+  // Load CFTI dropdown
   useEffect(() => {
     axios
       .get(`${API}/cftiparts`, { headers })
@@ -48,7 +49,7 @@ export default function GEReference() {
       .catch(() => {});
   }, [token]);
 
-  // ── Fetch data ────────────────────────────────────────────────────────────
+  // Fetch data
   const fetchData = useCallback(async () => {
     try {
       const { data } = await axios.get(API, { headers });
@@ -69,7 +70,7 @@ export default function GEReference() {
     setTimeout(() => setAlert({ msg: "", type: "" }), 4000);
   };
 
-  // ── Live Search ───────────────────────────────────────────────────────────
+  // Live Search
   const handleLiveSearch = (e) => {
     const val = e.target.value;
     setSearchText(val);
@@ -79,8 +80,8 @@ export default function GEReference() {
         ? allData
         : allData.filter(
             (row) =>
-              (row.Customerpartno || "").toLowerCase().includes(q) ||
-              (row.Cftipartno || "").toLowerCase().includes(q),
+              row.Customerpartno?.toLowerCase().includes(q) ||
+              row.Cftipartno?.toLowerCase().includes(q),
           ),
     );
     setPage(1);
@@ -92,15 +93,14 @@ export default function GEReference() {
     setPage(1);
   };
 
-  // ── Pagination ────────────────────────────────────────────────────────────
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.ceil(filtered.length / PAGESIZE);
+  const paginated = filtered.slice((page - 1) * PAGESIZE, page * PAGESIZE);
 
-  // ── Panels ────────────────────────────────────────────────────────────────
+  // Panels
   const openAdd = () => {
     setForm(emptyForm);
     setFieldErrors({});
-    setAlert({ msg: "", type: "" });
+    setAlert({ msg: "", type: "" }); // ✅ clear alert
     setPanel("add");
   };
 
@@ -113,7 +113,7 @@ export default function GEReference() {
     setEditSno(row.Sno);
     setEditCfti(row.Cftipartno);
     setFieldErrors({});
-    setAlert({ msg: "", type: "" });
+    setAlert({ msg: "", type: "" }); // ✅ clear alert
     setPanel("edit");
   };
 
@@ -123,7 +123,7 @@ export default function GEReference() {
     setFieldErrors({});
   };
 
-  // ── Duplicate check (combination) ────────────────────────────────────────
+  // Duplicate check combination
   const checkDuplicate = async (custpartno, cftipartno) => {
     if (!custpartno || !cftipartno) return;
     try {
@@ -149,7 +149,7 @@ export default function GEReference() {
       return e;
     });
 
-  // ── ADD ───────────────────────────────────────────────────────────────────
+  // ADD
   const handleAdd = async (e) => {
     e.preventDefault();
     if (Object.keys(fieldErrors).length > 0) return;
@@ -169,7 +169,7 @@ export default function GEReference() {
     }
   };
 
-  // ── EDIT ──────────────────────────────────────────────────────────────────
+  // EDIT
   const handleEdit = async (e) => {
     e.preventDefault();
     if (Object.keys(fieldErrors).length > 0) return;
@@ -193,10 +193,11 @@ export default function GEReference() {
     }
   };
 
-  // ── TOGGLE ────────────────────────────────────────────────────────────────
+  // TOGGLE
   const handleToggle = async () => {
     const { sno, currentStatus } = confirmModal;
     const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
+    // ✅ FIXED: reset includes label: ""
     setConfirmModal({ show: false, sno: null, currentStatus: "", label: "" });
     try {
       const { data } = await axios.patch(
@@ -204,17 +205,19 @@ export default function GEReference() {
         { status: newStatus },
         { headers },
       );
-      if (data.openquote) {
-        showAlert(data.message, "warning");
-      } else {
-        fetchData();
-      }
+      if (data.openquote) showAlert(data.message, "warning");
+      else fetchData();
     } catch {
       showAlert("Failed to toggle status.", "danger");
     }
   };
 
   const lockedStyle = { backgroundColor: "#e9ecef" };
+
+  const pageNumbers = Array.from(
+    { length: totalPages },
+    (_, i) => i + 1,
+  ).filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2);
 
   return (
     <>
@@ -226,7 +229,8 @@ export default function GEReference() {
             className="btn btn-sm back-btn"
             onClick={() => navigate("/masters")}
           >
-            <i className="bi bi-arrow-left-circle-fill me-1"></i>Back
+            <i className="bi bi-arrow-left-circle-fill me-1" />
+            Back
           </button>
           <span className="text-muted" style={{ fontSize: "0.88rem" }}>
             Masters &rsaquo; <strong>GE Reference</strong>
@@ -234,26 +238,28 @@ export default function GEReference() {
         </div>
 
         <h5 className="master-page-title mb-3">
-          <i className="bi bi-link-45deg me-2"></i>GE Reference Master
+          <i className="bi bi-upc-scan me-2" />
+          GE Reference Master
         </h5>
 
+        {/* Alert */}
         {alert.msg && (
           <div className={`alert alert-${alert.type} py-2`} role="alert">
             {alert.msg}
           </div>
         )}
 
-        {/* ── Live Search Toolbar ───────────────────────────────────── */}
+        {/* Toolbar */}
         <div className="master-toolbar mb-3 d-flex flex-wrap align-items-center gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
-              Search (Customer PN / CFTI PN)
+              Search
             </label>
             <input
               type="text"
               className="form-control form-control-sm"
-              style={{ width: "260px" }}
-              placeholder="Filter by Customer PN or CFTI Part No..."
+              style={{ width: 260 }}
+              placeholder="Search Customer Part No. or CFTI Part No..."
               value={searchText}
               onChange={handleLiveSearch}
             />
@@ -263,31 +269,33 @@ export default function GEReference() {
               className="btn btn-sm btn-outline-secondary align-self-end"
               onClick={handleClear}
             >
-              <i className="bi bi-x-circle me-1"></i>Clear
+              <i className="bi bi-x-circle me-1" />
+              Clear
             </button>
           )}
           <div className="ms-auto d-flex align-items-center gap-2">
             <span className="text-muted" style={{ fontSize: "0.82rem" }}>
-              Records: <strong>{filtered.length}</strong>
+              Records <strong>{filtered.length}</strong>
             </span>
             {canEdit && (
               <button
                 className="btn btn-sm btn-primary-custom"
                 onClick={openAdd}
               >
-                <i className="bi bi-plus-circle-fill me-1"></i>Add
+                <i className="bi bi-plus-circle-fill me-1" />
+                Add
               </button>
             )}
           </div>
         </div>
 
-        {/* ── Table + Panel ────────────────────────────────────────── */}
+        {/* Table + Panel */}
         <div className="d-flex gap-3" style={{ minHeight: "60vh" }}>
           {/* Table */}
           <div
             className="master-table-wrapper"
             style={{
-              flex: panel ? "0 0 57%" : "1",
+              flex: panel ? "0 0 55%" : "1",
               transition: "flex 0.3s",
               overflowX: "auto",
             }}
@@ -296,15 +304,16 @@ export default function GEReference() {
               <thead>
                 <tr>
                   <th style={{ width: "6%" }}>S.No</th>
-                  <th style={{ width: "38%" }}>Customer Part No. (GE PN)</th>
-                  <th style={{ width: "38%" }}>CFTI Part No.</th>
-                  <th style={{ width: "18%" }}>Action</th>
+                  <th style={{ width: "30%" }}>Customer Part No. (GE PN)</th>
+                  <th style={{ width: "30%" }}>CFTI Part No.</th>
+                  <th style={{ width: "10%" }}>Status</th>
+                  <th style={{ width: "12%" }}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {paginated.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="text-center text-muted py-4">
+                    <td colSpan={5} className="text-center text-muted py-4">
                       No records found.
                     </td>
                   </tr>
@@ -320,11 +329,8 @@ export default function GEReference() {
                           : ""
                       }
                     >
-                      <td>{(page - 1) * PAGE_SIZE + idx + 1}</td>
-                      <td>
-                        <i className="bi bi-person-badge me-1 text-muted"></i>
-                        <strong>{row.Customerpartno}</strong>
-                      </td>
+                      <td>{(page - 1) * PAGESIZE + idx + 1}</td>
+                      <td>{row.Customerpartno}</td>
                       <td>
                         <span
                           className="badge"
@@ -337,24 +343,44 @@ export default function GEReference() {
                           {row.Cftipartno}
                         </span>
                       </td>
+                      <td>
+                        <span
+                          className={`badge ${
+                            row.status === "Active"
+                              ? "bg-success"
+                              : "bg-secondary"
+                          }`}
+                        >
+                          {row.status}
+                        </span>
+                      </td>
                       <td className="text-center">
                         {canEdit ? (
                           <button
-                            className={`btn btn-xs status-btn ${row.status === "Active" ? "status-active" : "status-inactive"}`}
-                            onClick={() =>
+                            className={`btn btn-xs status-btn ${
+                              row.status === "Active"
+                                ? "status-active"
+                                : "status-inactive"
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setConfirmModal({
                                 show: true,
                                 sno: row.Sno,
                                 currentStatus: row.status,
                                 label: `${row.Customerpartno} / ${row.Cftipartno}`,
-                              })
-                            }
+                              });
+                            }}
                           >
                             {row.status}
                           </button>
                         ) : (
                           <span
-                            className={`badge ${row.status === "Active" ? "bg-success" : "bg-secondary"}`}
+                            className={`badge ${
+                              row.status === "Active"
+                                ? "bg-success"
+                                : "bg-secondary"
+                            }`}
                           >
                             {row.status}
                           </span>
@@ -378,20 +404,14 @@ export default function GEReference() {
                     disabled={page === 1}
                     onClick={() => setPage((p) => p - 1)}
                   >
-                    <i className="bi bi-chevron-left"></i>
+                    <i className="bi bi-chevron-left" />
                   </button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter(
-                      (p) =>
-                        p === 1 || p === totalPages || Math.abs(p - page) <= 2,
-                    )
-                    .map((p, i, arr) => (
+                  {pageNumbers.map((p, i, arr) =>
+                    i > 0 && arr[i - 1] !== p - 1 ? (
                       <>
-                        {i > 0 && arr[i - 1] !== p - 1 && (
-                          <span key={`e${p}`} className="btn btn-sm disabled">
-                            …
-                          </span>
-                        )}
+                        <span key={`e${p}`} className="btn btn-sm disabled">
+                          …
+                        </span>
                         <button
                           key={p}
                           className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
@@ -400,30 +420,44 @@ export default function GEReference() {
                           {p}
                         </button>
                       </>
-                    ))}
+                    ) : (
+                      <button
+                        key={p}
+                        className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
+                        onClick={() => setPage(p)}
+                      >
+                        {p}
+                      </button>
+                    ),
+                  )}
                   <button
                     className="btn btn-sm btn-outline-secondary"
                     disabled={page === totalPages}
                     onClick={() => setPage((p) => p + 1)}
                   >
-                    <i className="bi bi-chevron-right"></i>
+                    <i className="bi bi-chevron-right" />
                   </button>
                 </div>
               </div>
             )}
           </div>
 
-          {/* ── Side Panel ───────────────────────────────────────── */}
+          {/* Side Panel */}
           {panel && (
-            <div className="master-side-panel" style={{ flex: "0 0 41%" }}>
+            <div
+              className="master-side-panel"
+              style={{ flex: "0 0 43%", maxHeight: "80vh", overflowY: "auto" }}
+            >
               <div className="panel-header d-flex justify-content-between align-items-center mb-3">
                 <h6
                   className="mb-0"
                   style={{ color: "#800000", fontWeight: 700 }}
                 >
                   <i
-                    className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}
-                  ></i>
+                    className={`bi ${
+                      panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"
+                    } me-2`}
+                  />
                   {panel === "add"
                     ? "Create GE Reference"
                     : "Modify GE Reference"}
@@ -432,7 +466,7 @@ export default function GEReference() {
                   className="btn btn-sm btn-outline-secondary"
                   onClick={closePanel}
                 >
-                  <i className="bi bi-x-lg"></i>
+                  <i className="bi bi-x-lg" />
                 </button>
               </div>
 
@@ -477,7 +511,7 @@ export default function GEReference() {
                   )}
                 </div>
 
-                {/* Customer Part No (GE PN) — editable in both add & edit */}
+                {/* Customer Part No / GE PN — editable in both */}
                 <div className="mb-3">
                   <label className="form-label panel-label">
                     Customer Part No. (GE PN){" "}
@@ -485,7 +519,9 @@ export default function GEReference() {
                   </label>
                   <input
                     type="text"
-                    className={`form-control form-control-sm ${fieldErrors.combo ? "is-invalid" : ""}`}
+                    className={`form-control form-control-sm ${
+                      fieldErrors.combo ? "is-invalid" : ""
+                    }`}
                     value={form.Customerpartno}
                     onChange={(e) => {
                       const val = e.target.value.toUpperCase();
@@ -509,7 +545,7 @@ export default function GEReference() {
                     className="alert alert-danger py-1 mb-3"
                     style={{ fontSize: "0.8rem" }}
                   >
-                    <i className="bi bi-exclamation-triangle-fill me-1"></i>
+                    <i className="bi bi-exclamation-triangle-fill me-1" />
                     {fieldErrors.combo}
                   </div>
                 )}
@@ -520,13 +556,14 @@ export default function GEReference() {
                     className="btn btn-sm btn-primary-custom flex-fill"
                     disabled={loading || Object.keys(fieldErrors).length > 0}
                   >
-                    {loading ? (
-                      <span className="spinner-border spinner-border-sm me-1"></span>
-                    ) : (
-                      <i
-                        className={`bi ${panel === "add" ? "bi-check-circle" : "bi-pencil-square"} me-1`}
-                      ></i>
+                    {loading && (
+                      <span className="spinner-border spinner-border-sm me-1" />
                     )}
+                    <i
+                      className={`bi ${
+                        panel === "add" ? "bi-check-circle" : "bi-pencil-square"
+                      } me-1`}
+                    />
                     {panel === "add" ? "Save" : "Update"}
                   </button>
                   <button
@@ -543,12 +580,12 @@ export default function GEReference() {
         </div>
       </div>
 
-      {/* ── Confirm Toggle Modal ──────────────────────────────────── */}
+      {/* ✅ FIXED: Confirm Modal — label shown, reset includes label: "" */}
       {confirmModal.show && (
         <div className="modal-backdrop-custom">
           <div className="confirm-modal">
             <h6 className="mb-3" style={{ color: "#800000" }}>
-              <i className="bi bi-exclamation-triangle-fill me-2"></i>
+              <i className="bi bi-exclamation-triangle-fill me-2" />
               Confirmation
             </h6>
             <p className="mb-1" style={{ fontSize: "0.88rem" }}>
@@ -566,6 +603,7 @@ export default function GEReference() {
               </button>
               <button
                 className="btn btn-sm btn-danger"
+                // ✅ FIXED: No button also resets label: ""
                 onClick={() =>
                   setConfirmModal({
                     show: false,

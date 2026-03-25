@@ -5,7 +5,7 @@ import DashboardNavbar from "../../components/DashboardNavbar";
 import { getAuth, isLoggedIn } from "../../utils/auth";
 
 const API = "http://localhost:5001/api/status-master";
-const PAGE_SIZE = 50;
+const PAGESIZE = 50;
 
 const emptyForm = { Data: "", Description: "" };
 
@@ -39,7 +39,6 @@ export default function StatusMaster() {
     if (!isLoggedIn()) navigate("/login", { replace: true });
   }, []);
 
-  // ── Fetch ────────────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     try {
       const { data } = await axios.get(API, { headers });
@@ -60,7 +59,7 @@ export default function StatusMaster() {
     setTimeout(() => setAlert({ msg: "", type: "" }), 4500);
   };
 
-  // ── Live Search ───────────────────────────────────────────────────────────
+  // ✅ FIXED: uses row.status (lowercase) consistently
   const handleLiveSearch = (e) => {
     const val = e.target.value;
     setSearchVal(val);
@@ -68,11 +67,10 @@ export default function StatusMaster() {
     setFiltered(
       !q
         ? allData
-        : allData.filter(
-            (row) =>
-              (row.Data || "").toLowerCase().includes(q) ||
-              (row.Description || "").toLowerCase().includes(q) ||
-              (row.Status || "").toLowerCase().includes(q),
+        : allData.filter((row) =>
+            [row.Data, row.Description, row.status]
+              .map((v) => (v ?? "").toLowerCase())
+              .some((v) => v.includes(q)),
           ),
     );
     setPage(1);
@@ -84,11 +82,13 @@ export default function StatusMaster() {
     setPage(1);
   };
 
-  // ── Pagination ────────────────────────────────────────────────────────────
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.ceil(filtered.length / PAGESIZE);
+  const paginated = filtered.slice((page - 1) * PAGESIZE, page * PAGESIZE);
+  const pageNumbers = Array.from(
+    { length: totalPages },
+    (_, i) => i + 1,
+  ).filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2);
 
-  // ── Open Add ─────────────────────────────────────────────────────────────
   const openAdd = () => {
     setForm(emptyForm);
     setDupError("");
@@ -96,9 +96,8 @@ export default function StatusMaster() {
     setPanel("add");
   };
 
-  // ── Double-click → Open Edit ──────────────────────────────────────────────
   const handleRowDblClick = (row) => {
-    if (row.Status === "Inactive") {
+    if (row.status === "Inactive") {
       showAlert(
         `The Status "${row.Data}" is Inactive and cannot be edited.`,
         "warning",
@@ -107,7 +106,7 @@ export default function StatusMaster() {
     }
     setEditSno(row.Sno);
     setEditDataLocked(row.Data);
-    setForm({ Data: row.Data, Description: row.Description || "" });
+    setForm({ Data: row.Data, Description: row.Description });
     setDupError("");
     setAlert({ msg: "", type: "" });
     setPanel("edit");
@@ -121,7 +120,6 @@ export default function StatusMaster() {
     setEditDataLocked("");
   };
 
-  // ── Duplicate check ───────────────────────────────────────────────────────
   const checkDuplicate = async (val) => {
     if (!val.trim()) return;
     try {
@@ -129,12 +127,10 @@ export default function StatusMaster() {
         `${API}/check?status=${encodeURIComponent(val)}`,
         { headers },
       );
-      if (data.exists) setDupError(data.message);
-      else setDupError("");
+      setDupError(data.exists ? data.message : "");
     } catch {}
   };
 
-  // ── ADD ───────────────────────────────────────────────────────────────────
   const handleAdd = async (e) => {
     e.preventDefault();
     if (dupError) return;
@@ -158,7 +154,6 @@ export default function StatusMaster() {
     }
   };
 
-  // ── EDIT ──────────────────────────────────────────────────────────────────
   const handleEdit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -181,7 +176,6 @@ export default function StatusMaster() {
     }
   };
 
-  // ── TOGGLE ────────────────────────────────────────────────────────────────
   const handleToggle = async () => {
     const { sno, currentStatus } = confirmModal;
     const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
@@ -198,6 +192,8 @@ export default function StatusMaster() {
     }
   };
 
+  const lockedStyle = { backgroundColor: "#e9ecef" };
+
   return (
     <>
       <DashboardNavbar />
@@ -208,16 +204,17 @@ export default function StatusMaster() {
             className="btn btn-sm back-btn"
             onClick={() => navigate("/masters")}
           >
-            <i className="bi bi-arrow-left-circle-fill me-1"></i>Back
+            <i className="bi bi-arrow-left-circle-fill me-1" />
+            Back
           </button>
           <span className="text-muted" style={{ fontSize: "0.88rem" }}>
-            Masters &rsaquo; <strong>Status (Opportunity Stage)</strong>
+            Masters &rsaquo; <strong>Status / Opportunity Stage</strong>
           </span>
         </div>
 
         <h5 className="master-page-title mb-3">
-          <i className="bi bi-diagram-3 me-2"></i>Status (Opportunity Stage)
-          Master
+          <i className="bi bi-diagram-3 me-2" />
+          Status / Opportunity Stage Master
         </h5>
 
         {alert.msg && (
@@ -226,7 +223,7 @@ export default function StatusMaster() {
           </div>
         )}
 
-        {/* ── Live Search Toolbar ───────────────────────────────────── */}
+        {/* Toolbar */}
         <div className="master-toolbar mb-3 d-flex flex-wrap align-items-center gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
@@ -235,7 +232,7 @@ export default function StatusMaster() {
             <input
               type="text"
               className="form-control form-control-sm"
-              style={{ width: "220px" }}
+              style={{ width: 220 }}
               placeholder="Search by Status..."
               value={searchVal}
               onChange={handleLiveSearch}
@@ -246,25 +243,27 @@ export default function StatusMaster() {
               className="btn btn-sm btn-outline-secondary align-self-end"
               onClick={handleClear}
             >
-              <i className="bi bi-x-circle me-1"></i>Clear
+              <i className="bi bi-x-circle me-1" />
+              Clear
             </button>
           )}
           <div className="ms-auto d-flex align-items-center gap-2">
             <span className="text-muted" style={{ fontSize: "0.82rem" }}>
-              Records: <strong>{filtered.length}</strong>
+              Records <strong>{filtered.length}</strong>
             </span>
             {canEdit && (
               <button
                 className="btn btn-sm btn-primary-custom"
                 onClick={openAdd}
               >
-                <i className="bi bi-plus-circle-fill me-1"></i>Add
+                <i className="bi bi-plus-circle-fill me-1" />
+                Add
               </button>
             )}
           </div>
         </div>
 
-        {/* Table + Side Panel */}
+        {/* Table + Panel */}
         <div className="d-flex gap-3" style={{ minHeight: "60vh" }}>
           {/* Table */}
           <div
@@ -279,9 +278,10 @@ export default function StatusMaster() {
               <thead>
                 <tr>
                   <th style={{ width: "7%" }}>S.No</th>
-                  <th style={{ width: "30%" }}>Status</th>
+                  <th style={{ width: "28%" }}>Status / Stage</th>
                   <th>Description</th>
-                  <th style={{ width: "12%" }}>Status</th>
+                  {/* ✅ FIXED: renamed from duplicate "Status" to "Active Status" and "Action" */}
+                  <th style={{ width: "12%" }}>Active Status</th>
                   {canEdit && <th style={{ width: "10%" }}>Action</th>}
                 </tr>
               </thead>
@@ -307,7 +307,7 @@ export default function StatusMaster() {
                           : ""
                       }
                     >
-                      <td>{(page - 1) * PAGE_SIZE + idx + 1}</td>
+                      <td>{(page - 1) * PAGESIZE + idx + 1}</td>
                       <td>
                         <span
                           className="badge"
@@ -320,33 +320,31 @@ export default function StatusMaster() {
                           {row.Data}
                         </span>
                       </td>
-                      <td style={{ fontSize: "0.82rem", color: "#555" }}>
-                        {row.Description || (
-                          <span className="text-muted">—</span>
-                        )}
+                      <td style={{ fontSize: "0.83rem", color: "#444" }}>
+                        {row.Description}
                       </td>
                       <td>
                         <span
-                          className={`badge ${row.Status === "Active" ? "bg-success" : "bg-secondary"}`}
+                          className={`badge ${row.status === "Active" ? "bg-success" : "bg-secondary"}`}
                         >
-                          {row.Status}
+                          {row.status}
                         </span>
                       </td>
                       {canEdit && (
                         <td className="text-center">
                           <button
-                            className={`btn btn-xs status-btn ${row.Status === "Active" ? "status-active" : "status-inactive"}`}
+                            className={`btn btn-xs status-btn ${row.status === "Active" ? "status-active" : "status-inactive"}`}
                             onClick={(e) => {
                               e.stopPropagation();
                               setConfirmModal({
                                 show: true,
                                 sno: row.Sno,
-                                currentStatus: row.Status,
+                                currentStatus: row.status,
                                 name: row.Data,
                               });
                             }}
                           >
-                            {row.Status}
+                            {row.status}
                           </button>
                         </td>
                       )}
@@ -368,20 +366,14 @@ export default function StatusMaster() {
                     disabled={page === 1}
                     onClick={() => setPage((p) => p - 1)}
                   >
-                    <i className="bi bi-chevron-left"></i>
+                    <i className="bi bi-chevron-left" />
                   </button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter(
-                      (p) =>
-                        p === 1 || p === totalPages || Math.abs(p - page) <= 2,
-                    )
-                    .map((p, i, arr) => (
+                  {pageNumbers.map((p, i, arr) =>
+                    i > 0 && arr[i - 1] !== p - 1 ? (
                       <>
-                        {i > 0 && arr[i - 1] !== p - 1 && (
-                          <span key={`e${p}`} className="btn btn-sm disabled">
-                            …
-                          </span>
-                        )}
+                        <span key={`e${p}`} className="btn btn-sm disabled">
+                          …
+                        </span>
                         <button
                           key={p}
                           className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
@@ -390,22 +382,34 @@ export default function StatusMaster() {
                           {p}
                         </button>
                       </>
-                    ))}
+                    ) : (
+                      <button
+                        key={p}
+                        className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
+                        onClick={() => setPage(p)}
+                      >
+                        {p}
+                      </button>
+                    ),
+                  )}
                   <button
                     className="btn btn-sm btn-outline-secondary"
                     disabled={page === totalPages}
                     onClick={() => setPage((p) => p + 1)}
                   >
-                    <i className="bi bi-chevron-right"></i>
+                    <i className="bi bi-chevron-right" />
                   </button>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Side Panel — Add or Edit */}
+          {/* Side Panel */}
           {panel && (
-            <div className="master-side-panel" style={{ flex: "0 0 41%" }}>
+            <div
+              className="master-side-panel"
+              style={{ flex: "0 0 41%", maxHeight: "82vh", overflowY: "auto" }}
+            >
               <div className="panel-header d-flex justify-content-between align-items-center mb-3">
                 <h6
                   className="mb-0"
@@ -413,14 +417,14 @@ export default function StatusMaster() {
                 >
                   <i
                     className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}
-                  ></i>
+                  />
                   {panel === "add" ? "Create Status" : "Edit Status"}
                 </h6>
                 <button
                   className="btn btn-sm btn-outline-secondary"
                   onClick={closePanel}
                 >
-                  <i className="bi bi-x-lg"></i>
+                  <i className="bi bi-x-lg" />
                 </button>
               </div>
 
@@ -429,7 +433,7 @@ export default function StatusMaster() {
                   className="alert alert-danger py-1 mb-3"
                   style={{ fontSize: "0.8rem" }}
                 >
-                  <i className="bi bi-exclamation-triangle-fill me-1"></i>
+                  <i className="bi bi-exclamation-triangle-fill me-1" />
                   {dupError}
                 </div>
               )}
@@ -438,62 +442,55 @@ export default function StatusMaster() {
                 onSubmit={panel === "add" ? handleAdd : handleEdit}
                 noValidate
               >
-                {/* Status / Data field */}
+                {/* Status/Data — locked in edit */}
                 <div className="mb-3">
                   <label className="form-label panel-label">
-                    Status <span className="text-danger">*</span>
+                    Status / Stage{" "}
+                    {panel === "add" && <span className="text-danger">*</span>}
                   </label>
                   {panel === "add" ? (
-                    <>
-                      <input
-                        type="text"
-                        className={`form-control form-control-sm ${dupError ? "is-invalid" : ""}`}
-                        value={form.Data}
-                        onChange={(e) => {
-                          const v = e.target.value.toUpperCase();
-                          setForm((f) => ({ ...f, Data: v }));
-                          setDupError("");
-                          if (v.trim()) checkDuplicate(v);
-                        }}
-                        required
-                        placeholder="e.g. ENQUIRY"
-                        maxLength={45}
-                        autoFocus
-                      />
-                      <small
-                        className="text-muted"
-                        style={{ fontSize: "0.74rem" }}
-                      >
-                        Auto-converted to UPPERCASE. Max 45 characters.
-                      </small>
-                    </>
+                    <input
+                      type="text"
+                      className={`form-control form-control-sm ${dupError ? "is-invalid" : ""}`}
+                      value={form.Data}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setForm((f) => ({ ...f, Data: v }));
+                        setDupError("");
+                        if (v.trim()) checkDuplicate(v.trim());
+                      }}
+                      required
+                      placeholder="e.g. ENQUIRY"
+                      maxLength={60}
+                      autoFocus
+                    />
                   ) : (
                     <input
                       type="text"
                       className="form-control form-control-sm"
                       value={editDataLocked}
                       readOnly
-                      style={{
-                        backgroundColor: "#f5f5f5",
-                        cursor: "not-allowed",
-                        fontWeight: 600,
-                      }}
+                      style={lockedStyle}
                     />
                   )}
                 </div>
 
                 {/* Description */}
                 <div className="mb-4">
-                  <label className="form-label panel-label">Description</label>
+                  <label className="form-label panel-label">
+                    Description{" "}
+                    {panel === "add" && <span className="text-danger">*</span>}
+                  </label>
                   <textarea
                     className="form-control form-control-sm"
-                    rows={3}
-                    maxLength={150}
+                    rows={4}
                     value={form.Description}
                     onChange={(e) =>
                       setForm((f) => ({ ...f, Description: e.target.value }))
                     }
-                    placeholder="Optional description..."
+                    required={panel === "add"}
+                    placeholder="Enter description..."
+                    maxLength={150}
                   />
                   <small className="text-muted" style={{ fontSize: "0.74rem" }}>
                     Max 150 characters.
@@ -506,16 +503,18 @@ export default function StatusMaster() {
                     className="btn btn-sm btn-primary-custom flex-fill"
                     disabled={
                       loading ||
-                      (panel === "add" && (!!dupError || !form.Data.trim()))
+                      !!dupError ||
+                      (panel === "add" &&
+                        (!form.Data.trim() || !form.Description.trim())) ||
+                      (panel === "edit" && !form.Description.trim())
                     }
                   >
-                    {loading ? (
-                      <span className="spinner-border spinner-border-sm me-1"></span>
-                    ) : (
-                      <i
-                        className={`bi ${panel === "add" ? "bi-check-circle" : "bi-save"} me-1`}
-                      ></i>
+                    {loading && (
+                      <span className="spinner-border spinner-border-sm me-1" />
                     )}
+                    <i
+                      className={`bi ${panel === "add" ? "bi-check-circle" : "bi-save"} me-1`}
+                    />
                     {panel === "add" ? "Save" : "Update"}
                   </button>
                   <button
@@ -537,7 +536,7 @@ export default function StatusMaster() {
         <div className="modal-backdrop-custom">
           <div className="confirm-modal">
             <h6 className="mb-3" style={{ color: "#800000" }}>
-              <i className="bi bi-exclamation-triangle-fill me-2"></i>
+              <i className="bi bi-exclamation-triangle-fill me-2" />
               Confirmation
             </h6>
             <p className="mb-4" style={{ fontSize: "0.88rem" }}>

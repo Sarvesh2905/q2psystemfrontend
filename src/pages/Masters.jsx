@@ -75,7 +75,7 @@ const subMasters = [
     key: "end-industry",
   },
   {
-    name: "Country Type",
+    name: "Customer Type",
     icon: "bi-flag-fill",
     path: "/masters/country-type",
     key: "country-type",

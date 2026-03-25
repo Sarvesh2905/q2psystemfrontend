@@ -5,12 +5,12 @@ import DashboardNavbar from "../../components/DashboardNavbar";
 import { getAuth, isLoggedIn } from "../../utils/auth";
 
 const API = "http://localhost:5001/api/price";
-const LTSA_API = "http://localhost:5001/api/ltsaprice";
-const PAGE_SIZE = 50;
+const LTSAAPI = "http://localhost:5001/api/ltsaprice";
+const PAGESIZE = 50;
 
 const generateLtsaCode = () => {
   const num = Math.floor(10 + Math.random() * 90);
-  return `LTSA_GE${num}`;
+  return `LTSAGE${num}`;
 };
 
 const emptyStandardForm = {
@@ -86,7 +86,7 @@ export default function Price() {
       .get(`${API}/options`, { headers })
       .then((r) => setOptions(r.data))
       .catch(() => {});
-  }, []);
+  }, [token]);
 
   const showAlert = (msg, type) => {
     setAlert({ msg, type });
@@ -94,7 +94,7 @@ export default function Price() {
   };
 
   const applyFilter = (data, q) => {
-    const ql = (q || "").trim().toLowerCase();
+    const ql = (q ?? "").trim().toLowerCase();
     setFiltered(
       !ql
         ? data
@@ -108,7 +108,7 @@ export default function Price() {
               row.Market,
               row.status,
             ]
-              .map((v) => (v || "").toLowerCase())
+              .map((v) => (v ?? "").toLowerCase())
               .some((v) => v.includes(ql)),
           ),
     );
@@ -117,7 +117,7 @@ export default function Price() {
 
   const fetchData = useCallback(async () => {
     try {
-      const url = isLtsa ? LTSA_API : API;
+      const url = isLtsa ? LTSAAPI : API;
       const { data } = await axios.get(url, { headers });
       setAllData(data);
       applyFilter(data, searchVal);
@@ -130,7 +130,7 @@ export default function Price() {
     fetchData();
   }, [fetchData]);
 
-  // ── Live Search ───────────────────────────────────────────────────────────
+  // Live Search
   const handleLiveSearch = (e) => {
     const val = e.target.value;
     setSearchVal(val);
@@ -142,20 +142,20 @@ export default function Price() {
     applyFilter(allData, "");
   };
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.ceil(filtered.length / PAGESIZE);
+  const paginated = filtered.slice((page - 1) * PAGESIZE, page * PAGESIZE);
+
   const pageNumbers = Array.from(
     { length: totalPages },
     (_, i) => i + 1,
   ).filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2);
 
+  // ✅ FIXED: openAdd clears alert
   const openAdd = () => {
-    if (isLtsa) {
-      setForm({ ...emptyLtsaForm, LTSACode: generateLtsaCode() });
-    } else {
-      setForm(emptyStandardForm);
-    }
+    if (isLtsa) setForm({ ...emptyLtsaForm, LTSACode: generateLtsaCode() });
+    else setForm(emptyStandardForm);
     setOpenQuoteWarning("");
+    setAlert({ msg: "", type: "" }); // ✅
     setPanel("add");
   };
 
@@ -166,45 +166,43 @@ export default function Price() {
     setOpenQuoteWarning("");
   };
 
+  // ✅ FIXED: handleRowDblClick clears alert
   const handleRowDblClick = async (row) => {
     if (!canEdit) return;
     if (row.status === "Inactive") {
       showAlert(
-        `"${row.Cftipartno}" is Inactive and cannot be edited.`,
+        `${row.Cftipartno} is Inactive and cannot be edited.`,
         "warning",
       );
       return;
     }
     try {
-      const { data } = await axios.get(`${API}/check/openquote`, {
+      const { data } = await axios.get(`${API}/checkopenquote`, {
         headers,
-        params: {
-          cftipartno: row.Cftipartno,
-          custpartno: row.Customerpartno || "",
-        },
+        params: { cftipartno: row.Cftipartno, custpartno: row.Customerpartno },
       });
       setOpenQuoteWarning(data.openquote ? data.message : "");
     } catch {
       setOpenQuoteWarning("");
     }
-
     setEditSno(row.Sno);
     setForm({
-      LTSACode: row.LTSACode || (isLtsa ? "" : "DEFAULT00"),
-      Customerpartno: row.Customerpartno || "",
-      Cftipartno: row.Cftipartno || "",
-      Description: row.Description || "",
-      ListPrice: isLtsa ? row.SplPrice || "" : row.ListPrice || "",
+      LTSACode: row.LTSACode ?? (isLtsa ? "" : "DEFAULT00"),
+      Customerpartno: row.Customerpartno ?? "",
+      Cftipartno: row.Cftipartno ?? "",
+      Description: row.Description ?? "",
+      ListPrice: isLtsa ? row.SplPrice : row.ListPrice,
       StartDate: row.StartDate ? row.StartDate.split("T")[0] : "",
       ExpDate: row.ExpDate ? row.ExpDate.split("T")[0] : "",
-      Curr: row.Curr || "USD",
-      Leadtime: row.Leadtime || "",
-      DeliveryTerm: row.DeliveryTerm || "",
-      SPLCond: row.SPLCond || "",
-      Remarks: row.Remarks || "",
-      Product: row.Product || "",
-      Market: row.Market || "FM",
+      Curr: row.Curr ?? "USD",
+      Leadtime: row.Leadtime ?? "",
+      DeliveryTerm: row.DeliveryTerm ?? "",
+      SPLCond: row.SPLCond ?? "",
+      Remarks: row.Remarks ?? "",
+      Product: row.Product ?? "",
+      Market: row.Market ?? "FM",
     });
+    setAlert({ msg: "", type: "" }); // ✅
     setPanel("edit");
   };
 
@@ -212,7 +210,7 @@ export default function Price() {
     e.preventDefault();
     setLoading(true);
     try {
-      const url = isLtsa ? LTSA_API : API;
+      const url = isLtsa ? LTSAAPI : API;
       const payload = isLtsa
         ? { ...form, SplPrice: form.ListPrice }
         : { ...form, LTSACode: "DEFAULT00" };
@@ -242,7 +240,7 @@ export default function Price() {
     e.preventDefault();
     setLoading(true);
     try {
-      const url = isLtsa ? `${LTSA_API}/${editSno}` : `${API}/${editSno}`;
+      const url = isLtsa ? `${LTSAAPI}/${editSno}` : `${API}/${editSno}`;
       const payload = isLtsa
         ? {
             ExpDate: form.ExpDate || null,
@@ -272,7 +270,7 @@ export default function Price() {
     const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
     setConfirmModal({ show: false, sno: null, currentStatus: "", partno: "" });
     try {
-      const url = isLtsa ? `${LTSA_API}/toggle/${sno}` : `${API}/toggle/${sno}`;
+      const url = isLtsa ? `${LTSAAPI}/toggle/${sno}` : `${API}/toggle/${sno}`;
       await axios.patch(url, { status: newStatus }, { headers });
       fetchData();
     } catch {
@@ -286,7 +284,7 @@ export default function Price() {
       return;
     }
     try {
-      const url = isLtsa ? `${LTSA_API}/download` : `${API}/download`;
+      const url = isLtsa ? `${LTSAAPI}/download` : `${API}/download`;
       const response = await axios.get(url, { headers, responseType: "blob" });
       const blob = new Blob([response.data], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -294,8 +292,8 @@ export default function Price() {
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
       link.download = isLtsa
-        ? `ltsa_price_${new Date().toISOString().split("T")[0]}.xlsx`
-        : `standard_price_${new Date().toISOString().split("T")[0]}.xlsx`;
+        ? `ltsaprice_${new Date().toISOString().split("T")[0]}.xlsx`
+        : `standardprice_${new Date().toISOString().split("T")[0]}.xlsx`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -311,12 +309,14 @@ export default function Price() {
     <>
       <DashboardNavbar />
       <div className="container-fluid px-3 py-3">
+        {/* Breadcrumb */}
         <div className="d-flex align-items-center gap-2 mb-3">
           <button
             className="btn btn-sm back-btn"
             onClick={() => navigate("/masters")}
           >
-            <i className="bi bi-arrow-left-circle-fill me-1"></i>Back
+            <i className="bi bi-arrow-left-circle-fill me-1" />
+            Back
           </button>
           <span className="text-muted" style={{ fontSize: "0.88rem" }}>
             Masters &rsaquo; <strong>Price Master</strong>
@@ -324,9 +324,11 @@ export default function Price() {
         </div>
 
         <h5 className="master-page-title mb-3">
-          <i className="bi bi-currency-dollar me-2"></i>Price Master
+          <i className="bi bi-currency-dollar me-2" />
+          Price Master
         </h5>
 
+        {/* Alert */}
         {alert.msg && (
           <div className={`alert alert-${alert.type} py-2`}>{alert.msg}</div>
         )}
@@ -353,22 +355,22 @@ export default function Price() {
                 fontSize: "0.88rem",
               }}
             >
-              {isLtsa ? "🔵 LTSA Price" : "⚪ Standard Price"}
+              {isLtsa ? "LTSA Price" : "Standard Price"}
             </label>
           </div>
         </div>
 
-        {/* ── Live Search Toolbar ───────────────────────────────── */}
+        {/* Toolbar */}
         <div className="master-toolbar mb-3 d-flex flex-wrap align-items-center gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
-              Search (CFTI PN / LTSA Code / Description / Product)
+              Search CFTI PN / LTSA Code / Description / Product
             </label>
             <input
               type="text"
               className="form-control form-control-sm"
-              style={{ width: "300px" }}
-              placeholder="Type to filter..."
+              style={{ width: 300 }}
+              placeholder="Search..."
               value={searchVal}
               onChange={handleLiveSearch}
             />
@@ -378,20 +380,21 @@ export default function Price() {
               className="btn btn-sm btn-outline-secondary align-self-end"
               onClick={handleClear}
             >
-              <i className="bi bi-x-circle me-1"></i>Clear
+              <i className="bi bi-x-circle me-1" />
+              Clear
             </button>
           )}
-          <div className="ms-auto d-flex align-items-center gap-2 flex-wrap">
+          <div className="ms-auto d-flex align-items-center gap-2">
             <span className="text-muted" style={{ fontSize: "0.82rem" }}>
-              Records: <strong>{filtered.length}</strong>
+              Records <strong>{filtered.length}</strong>
             </span>
             {canDownload && (
               <button
                 className="btn btn-sm btn-outline-secondary"
                 onClick={handleDownload}
               >
-                <i className="bi bi-download me-1"></i>
-                {allData.length > 0 ? "Download Data" : "Download Template"}
+                <i className="bi bi-download me-1" />
+                Export
               </button>
             )}
             {canEdit && (
@@ -399,7 +402,8 @@ export default function Price() {
                 className="btn btn-sm btn-primary-custom"
                 onClick={openAdd}
               >
-                <i className="bi bi-plus-circle-fill me-1"></i>Add
+                <i className="bi bi-plus-circle-fill me-1" />
+                Add
               </button>
             )}
           </div>
@@ -407,6 +411,7 @@ export default function Price() {
 
         {/* Table + Panel */}
         <div className="d-flex gap-3" style={{ minHeight: "60vh" }}>
+          {/* Table */}
           <div
             className="master-table-wrapper"
             style={{
@@ -420,7 +425,7 @@ export default function Price() {
                 <tr>
                   <th style={{ width: "4%" }}>S.No</th>
                   <th style={{ width: "10%" }}>LTSA Code</th>
-                  <th style={{ width: "10%" }}>Customer PN</th>
+                  <th style={{ width: "11%" }}>Customer PN</th>
                   <th style={{ width: "11%" }}>CFTI PN</th>
                   <th>Description</th>
                   <th style={{ width: "8%" }}>Price</th>
@@ -455,7 +460,7 @@ export default function Price() {
                           : ""
                       }
                     >
-                      <td>{(page - 1) * PAGE_SIZE + idx + 1}</td>
+                      <td>{(page - 1) * PAGESIZE + idx + 1}</td>
                       <td>
                         <span
                           className="badge"
@@ -467,54 +472,37 @@ export default function Price() {
                       <td style={{ fontSize: "0.82rem" }}>
                         {row.Customerpartno || "---"}
                       </td>
-                      <td>
-                        <span
-                          className="badge"
-                          style={{ background: "#8B0000", fontSize: "0.75rem" }}
-                        >
-                          {row.Cftipartno}
-                        </span>
-                      </td>
+                      <td style={{ fontSize: "0.82rem" }}>{row.Cftipartno}</td>
                       <td style={{ fontSize: "0.82rem" }}>{row.Description}</td>
-                      <td
-                        className="text-end fw-semibold"
-                        style={{ fontSize: "0.82rem" }}
-                      >
-                        {Number(
-                          isLtsa ? row.SplPrice || 0 : row.ListPrice || 0,
-                        ).toFixed(2)}
+                      <td style={{ fontSize: "0.82rem" }}>
+                        {isLtsa ? row.SplPrice : row.ListPrice}
                       </td>
-                      <td style={{ fontSize: "0.8rem" }}>
-                        {row.StartDate ? row.StartDate.split("T")[0] : "---"}
+                      <td style={{ fontSize: "0.82rem" }}>
+                        {row.StartDate?.split("T")[0] ?? "---"}
                       </td>
-                      <td style={{ fontSize: "0.8rem" }}>
-                        {row.ExpDate ? row.ExpDate.split("T")[0] : "---"}
+                      <td style={{ fontSize: "0.82rem" }}>
+                        {row.ExpDate?.split("T")[0] ?? "---"}
                       </td>
-                      <td>
-                        <span
-                          className="badge bg-secondary"
-                          style={{ fontSize: "0.75rem" }}
-                        >
-                          {row.Curr}
-                        </span>
-                      </td>
+                      <td>{row.Curr}</td>
                       <td style={{ fontSize: "0.82rem" }}>{row.Product}</td>
                       <td>
                         <span
-                          className="badge"
-                          style={{
-                            background:
-                              row.Market === "FM" ? "#00838f" : "#7b1fa2",
-                            fontSize: "0.75rem",
-                          }}
+                          className={`badge ${
+                            row.Market === "FM"
+                              ? "bg-info text-dark"
+                              : "bg-warning text-dark"
+                          }`}
                         >
                           {row.Market}
                         </span>
                       </td>
                       <td>
                         <span
-                          className={`badge ${row.status === "Active" ? "bg-success" : "bg-secondary"}`}
-                          style={{ fontSize: "0.75rem" }}
+                          className={`badge ${
+                            row.status === "Active"
+                              ? "bg-success"
+                              : "bg-secondary"
+                          }`}
                         >
                           {row.status}
                         </span>
@@ -522,16 +510,20 @@ export default function Price() {
                       {canEdit && (
                         <td className="text-center">
                           <button
-                            className={`btn btn-xs ${row.status === "Active" ? "btn-outline-success" : "btn-outline-secondary"}`}
-                            style={{ fontSize: "0.72rem", padding: "2px 7px" }}
-                            onClick={() =>
+                            className={`btn btn-xs status-btn ${
+                              row.status === "Active"
+                                ? "status-active"
+                                : "status-inactive"
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setConfirmModal({
                                 show: true,
                                 sno: row.Sno,
                                 currentStatus: row.status,
                                 partno: row.Cftipartno,
-                              })
-                            }
+                              });
+                            }}
                           >
                             {row.status}
                           </button>
@@ -543,35 +535,52 @@ export default function Price() {
               </tbody>
             </table>
 
+            {/* Pagination */}
             {totalPages > 1 && (
-              <div className="d-flex justify-content-center align-items-center gap-1 mt-2 flex-wrap">
-                <button
-                  className="btn btn-sm btn-outline-secondary"
-                  disabled={page === 1}
-                  onClick={() => setPage((p) => p - 1)}
-                >
-                  ‹
-                </button>
-                {pageNumbers.map((p, i) => (
-                  <span key={i}>
-                    {i > 0 && pageNumbers[i - 1] !== p - 1 && (
-                      <span className="px-1 text-muted">...</span>
-                    )}
-                    <button
-                      className={`btn btn-sm ${p === page ? "btn-primary-custom" : "btn-outline-secondary"}`}
-                      onClick={() => setPage(p)}
-                    >
-                      {p}
-                    </button>
-                  </span>
-                ))}
-                <button
-                  className="btn btn-sm btn-outline-secondary"
-                  disabled={page === totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  ›
-                </button>
+              <div className="d-flex justify-content-between align-items-center mt-2 px-1">
+                <small className="text-muted">
+                  Page {page} of {totalPages}
+                </small>
+                <div className="d-flex gap-1">
+                  <button
+                    className="btn btn-sm btn-outline-secondary"
+                    disabled={page === 1}
+                    onClick={() => setPage((p) => p - 1)}
+                  >
+                    <i className="bi bi-chevron-left" />
+                  </button>
+                  {pageNumbers.map((p, i, arr) =>
+                    i > 0 && arr[i - 1] !== p - 1 ? (
+                      <>
+                        <span key={`e${p}`} className="btn btn-sm disabled">
+                          …
+                        </span>
+                        <button
+                          key={p}
+                          className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
+                          onClick={() => setPage(p)}
+                        >
+                          {p}
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        key={p}
+                        className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
+                        onClick={() => setPage(p)}
+                      >
+                        {p}
+                      </button>
+                    ),
+                  )}
+                  <button
+                    className="btn btn-sm btn-outline-secondary"
+                    disabled={page === totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    <i className="bi bi-chevron-right" />
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -586,15 +595,13 @@ export default function Price() {
                 <h6 className="fw-bold mb-0" style={{ color: "#8B0000" }}>
                   <i
                     className={`bi bi-${panel === "add" ? "plus-circle" : "pencil-square"} me-2`}
-                  ></i>
+                  />
                   {panel === "add" ? "Create Price Entry" : "Edit Price Entry"}
                 </h6>
                 <button
                   className="btn btn-sm btn-outline-secondary"
                   onClick={closePanel}
-                >
-                  ✕
-                </button>
+                />
               </div>
 
               {openQuoteWarning && (
@@ -602,7 +609,7 @@ export default function Price() {
                   className="alert alert-warning py-2 mb-2"
                   style={{ fontSize: "0.8rem" }}
                 >
-                  ⚠ {openQuoteWarning}
+                  {openQuoteWarning}
                 </div>
               )}
 
@@ -611,10 +618,13 @@ export default function Price() {
                   {/* LTSA Code */}
                   <div className="col-6">
                     <label className="form-label form-label-sm">
-                      LTSA Code <span className="text-danger">*</span>
+                      LTSA Code{" "}
+                      {isLtsa && panel === "add" && (
+                        <span className="text-danger">*</span>
+                      )}
                       {isLtsa && panel === "add" && (
                         <small className="text-muted ms-1">
-                          (Auto-generated)
+                          Auto-generated
                         </small>
                       )}
                     </label>
@@ -628,6 +638,7 @@ export default function Price() {
                     />
                   </div>
 
+                  {/* Customer PN */}
                   <div className="col-6">
                     <label className="form-label form-label-sm">
                       Customer PN
@@ -648,6 +659,7 @@ export default function Price() {
                     />
                   </div>
 
+                  {/* CFTI Part No */}
                   <div className="col-6">
                     <label className="form-label form-label-sm">
                       CFTI Part No <span className="text-danger">*</span>
@@ -660,13 +672,13 @@ export default function Price() {
                         panel === "add" &&
                         setForm((f) => ({ ...f, Cftipartno: e.target.value }))
                       }
-                      required
                       readOnly={panel === "edit"}
                       style={panel === "edit" ? lockedStyle : {}}
-                      placeholder="e.g. RGL-001"
+                      required
                     />
                   </div>
 
+                  {/* Currency */}
                   <div className="col-6">
                     <label className="form-label form-label-sm">
                       Currency <span className="text-danger">*</span>
@@ -687,6 +699,7 @@ export default function Price() {
                     </select>
                   </div>
 
+                  {/* Description */}
                   <div className="col-12">
                     <label className="form-label form-label-sm">
                       Description <span className="text-danger">*</span>
@@ -705,6 +718,7 @@ export default function Price() {
                     />
                   </div>
 
+                  {/* SPL Price / List Price */}
                   <div className="col-6">
                     <label className="form-label form-label-sm">
                       {isLtsa ? "SPL Price" : "List Price"}{" "}
@@ -726,6 +740,7 @@ export default function Price() {
                     />
                   </div>
 
+                  {/* Start Date */}
                   <div className="col-6">
                     <label className="form-label form-label-sm">
                       Start Date <span className="text-danger">*</span>
@@ -744,6 +759,7 @@ export default function Price() {
                     />
                   </div>
 
+                  {/* Exp Date */}
                   <div className="col-6">
                     <label className="form-label form-label-sm">Exp Date</label>
                     <input
@@ -753,9 +769,14 @@ export default function Price() {
                       onChange={(e) =>
                         setForm((f) => ({ ...f, ExpDate: e.target.value }))
                       }
+                      disabled={panel === "edit" && !!openQuoteWarning}
+                      style={
+                        panel === "edit" && openQuoteWarning ? lockedStyle : {}
+                      }
                     />
                   </div>
 
+                  {/* Lead Time */}
                   <div className="col-6">
                     <label className="form-label form-label-sm">
                       Lead Time <span className="text-danger">*</span>
@@ -781,6 +802,7 @@ export default function Price() {
                     </select>
                   </div>
 
+                  {/* Delivery Term */}
                   <div className="col-6">
                     <label className="form-label form-label-sm">
                       Delivery Term <span className="text-danger">*</span>
@@ -806,10 +828,9 @@ export default function Price() {
                     </select>
                   </div>
 
+                  {/* Product */}
                   <div className="col-6">
-                    <label className="form-label form-label-sm">
-                      Product <span className="text-danger">*</span>
-                    </label>
+                    <label className="form-label form-label-sm">Product</label>
                     <select
                       className="form-select form-select-sm"
                       value={form.Product}
@@ -817,7 +838,6 @@ export default function Price() {
                         panel === "add" &&
                         setForm((f) => ({ ...f, Product: e.target.value }))
                       }
-                      required
                       disabled={panel === "edit"}
                       style={panel === "edit" ? lockedStyle : {}}
                     >
@@ -830,10 +850,9 @@ export default function Price() {
                     </select>
                   </div>
 
+                  {/* Market */}
                   <div className="col-6">
-                    <label className="form-label form-label-sm">
-                      Market <span className="text-danger">*</span>
-                    </label>
+                    <label className="form-label form-label-sm">Market</label>
                     <select
                       className="form-select form-select-sm"
                       value={form.Market}
@@ -841,7 +860,6 @@ export default function Price() {
                         panel === "add" &&
                         setForm((f) => ({ ...f, Market: e.target.value }))
                       }
-                      required
                       disabled={panel === "edit"}
                       style={panel === "edit" ? lockedStyle : {}}
                     >
@@ -850,6 +868,7 @@ export default function Price() {
                     </select>
                   </div>
 
+                  {/* SPL Condition (Standard only) */}
                   {!isLtsa && (
                     <div className="col-12">
                       <label className="form-label form-label-sm">
@@ -866,6 +885,7 @@ export default function Price() {
                     </div>
                   )}
 
+                  {/* Remarks (Standard only) */}
                   {!isLtsa && (
                     <div className="col-12">
                       <label className="form-label form-label-sm">
@@ -889,17 +909,10 @@ export default function Price() {
                     className="btn btn-sm btn-primary-custom flex-fill"
                     disabled={loading}
                   >
-                    {loading ? (
-                      <>
-                        <span className="spinner-border spinner-border-sm me-1" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <i className="bi bi-check-circle me-1" />
-                        {panel === "add" ? "Save" : "Update"}
-                      </>
+                    {loading && (
+                      <span className="spinner-border spinner-border-sm me-1" />
                     )}
+                    {panel === "add" ? "Yes, Confirm" : "Update"}
                   </button>
                   <button
                     type="button"
@@ -917,45 +930,23 @@ export default function Price() {
 
       {/* Confirm Toggle Modal */}
       {confirmModal.show && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            background: "rgba(0,0,0,0.45)",
-            zIndex: 1050,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div
-            className="bg-white rounded shadow p-4"
-            style={{ width: "360px" }}
-          >
-            <h6 className="fw-bold mb-2">Confirm Status Change</h6>
-            <p className="mb-3" style={{ fontSize: "0.9rem" }}>
-              Make <strong>{confirmModal.partno}</strong>{" "}
-              <strong
-                className={
-                  confirmModal.currentStatus === "Active"
-                    ? "text-danger"
-                    : "text-success"
-                }
-              >
+        <div className="modal-backdrop-custom">
+          <div className="confirm-modal">
+            <h6 className="mb-3" style={{ color: "#800000" }}>
+              <i className="bi bi-exclamation-triangle-fill me-2" />
+              Confirmation
+            </h6>
+            <p className="mb-4" style={{ fontSize: "0.88rem" }}>
+              Do you want to make <strong>{confirmModal.partno}</strong>{" "}
+              <strong>
                 {confirmModal.currentStatus === "Active"
                   ? "Inactive"
                   : "Active"}
               </strong>
               ?
             </p>
-            <div className="d-flex gap-2">
-              <button
-                className="btn btn-sm btn-danger flex-fill"
-                onClick={handleToggle}
-              >
+            <div className="d-flex gap-2 justify-content-end">
+              <button className="btn btn-sm btn-success" onClick={handleToggle}>
                 Yes, Confirm
               </button>
               <button

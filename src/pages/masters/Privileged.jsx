@@ -5,14 +5,10 @@ import DashboardNavbar from "../../components/DashboardNavbar";
 import { getAuth, isLoggedIn } from "../../utils/auth";
 
 const API = "http://localhost:5001/api/privileged";
-const PAGE_SIZE = 50;
+const PAGESIZE = 50;
+const PRIVILEGEOPTIONS = ["Allowmaster", "Restrictmaster"];
 
-const PRIVILEGE_OPTIONS = ["Allowmaster", "Restrictmaster"];
-
-const emptyForm = {
-  Program: "",
-  Privilege: "Allowmaster",
-};
+const emptyForm = { Program: "", Privilege: "Allowmaster" };
 
 export default function Privileged() {
   const navigate = useNavigate();
@@ -44,7 +40,6 @@ export default function Privileged() {
     if (!isLoggedIn()) navigate("/login", { replace: true });
   }, []);
 
-  // ── Fetch data ──────────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     try {
       const { data } = await axios.get(API, { headers });
@@ -65,15 +60,19 @@ export default function Privileged() {
     setTimeout(() => setAlert({ msg: "", type: "" }), 4500);
   };
 
-  // ── Search ──────────────────────────────────────────────────────────────────
-  const handleSearch = () => {
-    const q = searchVal.trim().toLowerCase();
+  // ✅ FIXED: Live search (was button-click only before)
+  const handleLiveSearch = (e) => {
+    const val = e.target.value;
+    setSearchVal(val);
+    const q = val.trim().toLowerCase();
     setFiltered(
-      allData.filter(
-        (row) => !q || (row.Program || "").toLowerCase().includes(q),
-      ),
+      !q
+        ? allData
+        : allData.filter((row) =>
+            (row.Program ?? "").toLowerCase().includes(q),
+          ),
     );
-    setPage(1);
+    setPage(1); // ✅ FIXED: resets page
   };
 
   const handleClear = () => {
@@ -82,11 +81,13 @@ export default function Privileged() {
     setPage(1);
   };
 
-  // ── Pagination ──────────────────────────────────────────────────────────────
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.ceil(filtered.length / PAGESIZE);
+  const paginated = filtered.slice((page - 1) * PAGESIZE, page * PAGESIZE);
+  const pageNumbers = Array.from(
+    { length: totalPages },
+    (_, i) => i + 1,
+  ).filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2);
 
-  // ── Open Add ────────────────────────────────────────────────────────────────
   const openAdd = () => {
     setForm(emptyForm);
     setDupError("");
@@ -94,21 +95,14 @@ export default function Privileged() {
     setPanel("add");
   };
 
-  // ── Double-click → Edit ─────────────────────────────────────────────────────
   const handleRowDblClick = (row) => {
     if (row.status === "Inactive") {
-      showAlert(
-        `"${row.Program}" is Inactive and cannot be edited.`,
-        "warning",
-      );
+      showAlert(`${row.Program} is Inactive and cannot be edited.`, "warning");
       return;
     }
     setEditSno(row.Sno);
     setEditProgLocked(row.Program);
-    setForm({
-      Program: row.Program,
-      Privilege: row.Privilege,
-    });
+    setForm({ Program: row.Program, Privilege: row.Privilege });
     setDupError("");
     setAlert({ msg: "", type: "" });
     setPanel("edit");
@@ -122,7 +116,6 @@ export default function Privileged() {
     setEditProgLocked("");
   };
 
-  // ── Duplicate check ─────────────────────────────────────────────────────────
   const checkDuplicate = async (val) => {
     if (!val.trim()) return;
     try {
@@ -130,12 +123,10 @@ export default function Privileged() {
         `${API}/check?program=${encodeURIComponent(val)}`,
         { headers },
       );
-      if (data.exists) setDupError(data.message);
-      else setDupError("");
+      setDupError(data.exists ? data.message : "");
     } catch {}
   };
 
-  // ── ADD ─────────────────────────────────────────────────────────────────────
   const handleAdd = async (e) => {
     e.preventDefault();
     if (dupError) return;
@@ -155,7 +146,6 @@ export default function Privileged() {
     }
   };
 
-  // ── EDIT ────────────────────────────────────────────────────────────────────
   const handleEdit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -178,7 +168,6 @@ export default function Privileged() {
     }
   };
 
-  // ── TOGGLE ──────────────────────────────────────────────────────────────────
   const handleToggle = async () => {
     const { sno, currentStatus } = confirmModal;
     const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
@@ -195,11 +184,6 @@ export default function Privileged() {
     }
   };
 
-  const pageNumbers = Array.from(
-    { length: totalPages },
-    (_, i) => i + 1,
-  ).filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2);
-
   return (
     <>
       <DashboardNavbar />
@@ -210,7 +194,8 @@ export default function Privileged() {
             className="btn btn-sm back-btn"
             onClick={() => navigate("/masters")}
           >
-            <i className="bi bi-arrow-left-circle-fill me-1"></i>Back
+            <i className="bi bi-arrow-left-circle-fill me-1" />
+            Back
           </button>
           <span className="text-muted" style={{ fontSize: "0.88rem" }}>
             Masters &rsaquo; <strong>Privileged Programs</strong>
@@ -218,8 +203,8 @@ export default function Privileged() {
         </div>
 
         <h5 className="master-page-title mb-3">
-          <i className="bi bi-shield-lock-fill me-2"></i>Privileged Programs
-          Master
+          <i className="bi bi-shield-lock-fill me-2" />
+          Privileged Programs Master
         </h5>
 
         {alert.msg && (
@@ -228,8 +213,8 @@ export default function Privileged() {
           </div>
         )}
 
-        {/* ── Toolbar ──────────────────────────────────────────────── */}
-        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-end gap-2">
+        {/* ✅ FIXED: Live search toolbar */}
+        <div className="master-toolbar mb-3 d-flex flex-wrap align-items-center gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
               Program Name
@@ -237,43 +222,38 @@ export default function Privileged() {
             <input
               type="text"
               className="form-control form-control-sm"
-              style={{ width: "240px" }}
+              style={{ width: 240 }}
               placeholder="Search by Program..."
               value={searchVal}
-              onChange={(e) => setSearchVal(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              onChange={handleLiveSearch}
             />
           </div>
-          <div className="d-flex gap-2 align-items-end">
+          {searchVal && (
             <button
-              className="btn btn-sm btn-primary-custom"
-              onClick={handleSearch}
-            >
-              <i className="bi bi-search me-1"></i>Search
-            </button>
-            <button
-              className="btn btn-sm btn-outline-secondary"
+              className="btn btn-sm btn-outline-secondary align-self-end"
               onClick={handleClear}
             >
-              <i className="bi bi-x-circle me-1"></i>Clear
+              <i className="bi bi-x-circle me-1" />
+              Clear
             </button>
-          </div>
-          <div className="ms-auto d-flex align-items-end gap-2">
+          )}
+          <div className="ms-auto d-flex align-items-center gap-2">
             <span className="text-muted" style={{ fontSize: "0.82rem" }}>
-              Records: <strong>{filtered.length}</strong>
+              Records <strong>{filtered.length}</strong>
             </span>
             {canEdit && (
               <button
                 className="btn btn-sm btn-primary-custom"
                 onClick={openAdd}
               >
-                <i className="bi bi-plus-circle-fill me-1"></i>Add
+                <i className="bi bi-plus-circle-fill me-1" />
+                Add
               </button>
             )}
           </div>
         </div>
 
-        {/* ── Table + Panel ──────────────────────────────────────────── */}
+        {/* Table + Panel */}
         <div className="d-flex gap-3" style={{ minHeight: "60vh" }}>
           {/* Table */}
           <div
@@ -316,7 +296,7 @@ export default function Privileged() {
                           : ""
                       }
                     >
-                      <td>{(page - 1) * PAGE_SIZE + idx + 1}</td>
+                      <td>{(page - 1) * PAGESIZE + idx + 1}</td>
                       <td>
                         <code
                           style={{
@@ -332,30 +312,18 @@ export default function Privileged() {
                       </td>
                       <td>
                         <span
-                          className={`badge ${
-                            row.Privilege === "Allowmaster"
-                              ? "bg-success"
-                              : "bg-warning text-dark"
-                          }`}
+                          className={`badge ${row.Privilege === "Allowmaster" ? "bg-success" : "bg-warning text-dark"}`}
                           style={{ fontSize: "0.75rem" }}
                         >
                           <i
-                            className={`bi ${
-                              row.Privilege === "Allowmaster"
-                                ? "bi-unlock-fill"
-                                : "bi-lock-fill"
-                            } me-1`}
-                          ></i>
+                            className={`bi ${row.Privilege === "Allowmaster" ? "bi-unlock-fill" : "bi-lock-fill"} me-1`}
+                          />
                           {row.Privilege}
                         </span>
                       </td>
                       <td>
                         <span
-                          className={`badge ${
-                            row.status === "Active"
-                              ? "bg-success"
-                              : "bg-secondary"
-                          }`}
+                          className={`badge ${row.status === "Active" ? "bg-success" : "bg-secondary"}`}
                         >
                           {row.status}
                         </span>
@@ -363,11 +331,7 @@ export default function Privileged() {
                       {canEdit && (
                         <td className="text-center">
                           <button
-                            className={`btn btn-xs status-btn ${
-                              row.status === "Active"
-                                ? "status-active"
-                                : "status-inactive"
-                            }`}
+                            className={`btn btn-xs status-btn ${row.status === "Active" ? "status-active" : "status-inactive"}`}
                             onClick={(e) => {
                               e.stopPropagation();
                               setConfirmModal({
@@ -400,74 +364,68 @@ export default function Privileged() {
                     disabled={page === 1}
                     onClick={() => setPage((p) => p - 1)}
                   >
-                    <i className="bi bi-chevron-left"></i>
+                    <i className="bi bi-chevron-left" />
                   </button>
-                  {pageNumbers.map((p, i, arr) => (
-                    <>
-                      {i > 0 && arr[i - 1] !== p - 1 && (
+                  {pageNumbers.map((p, i, arr) =>
+                    i > 0 && arr[i - 1] !== p - 1 ? (
+                      <>
                         <span key={`e${p}`} className="btn btn-sm disabled">
                           …
                         </span>
-                      )}
+                        <button
+                          key={p}
+                          className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
+                          onClick={() => setPage(p)}
+                        >
+                          {p}
+                        </button>
+                      </>
+                    ) : (
                       <button
                         key={p}
-                        className={`btn btn-sm ${
-                          page === p
-                            ? "btn-primary-custom"
-                            : "btn-outline-secondary"
-                        }`}
+                        className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
                         onClick={() => setPage(p)}
                       >
                         {p}
                       </button>
-                    </>
-                  ))}
+                    ),
+                  )}
                   <button
                     className="btn btn-sm btn-outline-secondary"
                     disabled={page === totalPages}
                     onClick={() => setPage((p) => p + 1)}
                   >
-                    <i className="bi bi-chevron-right"></i>
+                    <i className="bi bi-chevron-right" />
                   </button>
                 </div>
               </div>
             )}
           </div>
 
-          {/* ── Side Panel ──────────────────────────────────────────── */}
+          {/* Side Panel */}
           {panel && (
-            <div className="master-side-panel" style={{ flex: "0 0 41%" }}>
+            <div
+              className="master-side-panel"
+              style={{ flex: "0 0 41%", maxHeight: "82vh", overflowY: "auto" }}
+            >
               <div className="panel-header d-flex justify-content-between align-items-center mb-3">
                 <h6
                   className="mb-0"
                   style={{ color: "#800000", fontWeight: 700 }}
                 >
                   <i
-                    className={`bi ${
-                      panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"
-                    } me-2`}
-                  ></i>
+                    className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}
+                  />
                   {panel === "add"
-                    ? "Register Program"
-                    : "Edit Program Privilege"}
+                    ? "Create Privileged Program"
+                    : "Modify Privileged Program"}
                 </h6>
                 <button
                   className="btn btn-sm btn-outline-secondary"
                   onClick={closePanel}
                 >
-                  <i className="bi bi-x-lg"></i>
+                  <i className="bi bi-x-lg" />
                 </button>
-              </div>
-
-              {/* Info box */}
-              <div
-                className="alert alert-info py-2 mb-3"
-                style={{ fontSize: "0.78rem" }}
-              >
-                <i className="bi bi-info-circle-fill me-1"></i>
-                <strong>Allowmaster</strong> = All roles can access this page.
-                &nbsp;
-                <strong>Restrictmaster</strong> = Only Admin/Manager can access.
               </div>
 
               {dupError && (
@@ -475,7 +433,7 @@ export default function Privileged() {
                   className="alert alert-danger py-1 mb-3"
                   style={{ fontSize: "0.8rem" }}
                 >
-                  <i className="bi bi-exclamation-triangle-fill me-1"></i>
+                  <i className="bi bi-exclamation-triangle-fill me-1" />
                   {dupError}
                 </div>
               )}
@@ -484,35 +442,28 @@ export default function Privileged() {
                 onSubmit={panel === "add" ? handleAdd : handleEdit}
                 noValidate
               >
-                {/* Program Name */}
+                {/* Program */}
                 <div className="mb-3">
                   <label className="form-label panel-label">
-                    Program Name <span className="text-danger">*</span>
+                    Program Name{" "}
+                    {panel === "add" && <span className="text-danger">*</span>}
                   </label>
                   {panel === "add" ? (
-                    <>
-                      <input
-                        type="text"
-                        className={`form-control form-control-sm ${dupError ? "is-invalid" : ""}`}
-                        value={form.Program}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          setForm((f) => ({ ...f, Program: v }));
-                          setDupError("");
-                          if (v.trim()) checkDuplicate(v.trim());
-                        }}
-                        required
-                        placeholder="e.g. aemaster.html"
-                        maxLength={100}
-                        autoFocus
-                      />
-                      <small
-                        className="text-muted"
-                        style={{ fontSize: "0.74rem" }}
-                      >
-                        Enter the HTML filename exactly as used in the system.
-                      </small>
-                    </>
+                    <input
+                      type="text"
+                      className={`form-control form-control-sm ${dupError ? "is-invalid" : ""}`}
+                      value={form.Program}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setForm((f) => ({ ...f, Program: v }));
+                        setDupError("");
+                        if (v.trim()) checkDuplicate(v.trim());
+                      }}
+                      required
+                      placeholder="e.g. aemaster.html"
+                      maxLength={100}
+                      autoFocus
+                    />
                   ) : (
                     <input
                       type="text"
@@ -527,6 +478,9 @@ export default function Privileged() {
                       }}
                     />
                   )}
+                  <small className="text-muted" style={{ fontSize: "0.74rem" }}>
+                    Enter the HTML filename exactly as used in the system.
+                  </small>
                 </div>
 
                 {/* Privilege Type */}
@@ -535,40 +489,20 @@ export default function Privileged() {
                     Privilege Type <span className="text-danger">*</span>
                   </label>
                   <div className="d-flex gap-3 mt-1">
-                    {PRIVILEGE_OPTIONS.map((opt) => (
+                    {PRIVILEGEOPTIONS.map((opt) => (
                       <div className="form-check" key={opt}>
                         <input
                           className="form-check-input"
                           type="radio"
-                          id={`priv_${opt}`}
-                          name="Privilege"
+                          id={opt}
+                          name="privilege"
                           value={opt}
                           checked={form.Privilege === opt}
                           onChange={() =>
                             setForm((f) => ({ ...f, Privilege: opt }))
                           }
-                          autoFocus={panel === "edit" && opt === form.Privilege}
                         />
-                        <label
-                          className="form-check-label"
-                          htmlFor={`priv_${opt}`}
-                          style={{ fontSize: "0.82rem" }}
-                        >
-                          <span
-                            className={`badge ${
-                              opt === "Allowmaster"
-                                ? "bg-success"
-                                : "bg-warning text-dark"
-                            } me-1`}
-                          >
-                            <i
-                              className={`bi ${
-                                opt === "Allowmaster"
-                                  ? "bi-unlock-fill"
-                                  : "bi-lock-fill"
-                              }`}
-                            ></i>
-                          </span>
+                        <label className="form-check-label" htmlFor={opt}>
                           {opt}
                         </label>
                       </div>
@@ -580,20 +514,14 @@ export default function Privileged() {
                   <button
                     type="submit"
                     className="btn btn-sm btn-primary-custom flex-fill"
-                    disabled={
-                      loading ||
-                      (panel === "add" && (!!dupError || !form.Program.trim()))
-                    }
+                    disabled={loading || !!dupError || !form.Program.trim()}
                   >
-                    {loading ? (
-                      <span className="spinner-border spinner-border-sm me-1"></span>
-                    ) : (
-                      <i
-                        className={`bi ${
-                          panel === "add" ? "bi-check-circle" : "bi-save"
-                        } me-1`}
-                      ></i>
+                    {loading && (
+                      <span className="spinner-border spinner-border-sm me-1" />
                     )}
+                    <i
+                      className={`bi ${panel === "add" ? "bi-check-circle" : "bi-save"} me-1`}
+                    />
                     {panel === "add" ? "Save" : "Update"}
                   </button>
                   <button
@@ -610,19 +538,16 @@ export default function Privileged() {
         </div>
       </div>
 
-      {/* ── Confirm Toggle Modal ─────────────────────────────────────── */}
+      {/* Confirm Toggle Modal */}
       {confirmModal.show && (
         <div className="modal-backdrop-custom">
           <div className="confirm-modal">
             <h6 className="mb-3" style={{ color: "#800000" }}>
-              <i className="bi bi-exclamation-triangle-fill me-2"></i>
+              <i className="bi bi-exclamation-triangle-fill me-2" />
               Confirmation
             </h6>
             <p className="mb-4" style={{ fontSize: "0.88rem" }}>
-              Do you want to make{" "}
-              <strong>
-                <code>{confirmModal.name}</code>
-              </strong>{" "}
+              Do you want to make <code>{confirmModal.name}</code>{" "}
               <strong>
                 {confirmModal.currentStatus === "Active"
                   ? "Inactive"
