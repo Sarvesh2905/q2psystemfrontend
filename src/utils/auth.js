@@ -7,7 +7,7 @@ export const saveAuth = (token, user) => {
 
 export const getAuth = () => {
   const token = localStorage.getItem("q2p_token");
-  const user  = JSON.parse(localStorage.getItem("q2p_user") || "null");
+  const user = JSON.parse(localStorage.getItem("q2p_user") || "null");
   return { token, user };
 };
 

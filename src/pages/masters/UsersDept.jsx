@@ -94,7 +94,10 @@ export default function UsersDebt() {
 
   const openEdit = (row) => {
     if (row.status === "Inactive") {
-      showAlert(`"${row.Username}" is Inactive and cannot be edited.`, "warning");
+      showAlert(
+        `"${row.Username}" is Inactive and cannot be edited.`,
+        "warning",
+      );
       return;
     }
     setForm({
@@ -149,7 +152,10 @@ export default function UsersDebt() {
       closePanel();
       fetchData();
     } catch (err) {
-      showAlert(err.response?.data?.message || "Error adding record.", "danger");
+      showAlert(
+        err.response?.data?.message || "Error adding record.",
+        "danger",
+      );
     } finally {
       setLoading(false);
     }
@@ -170,7 +176,10 @@ export default function UsersDebt() {
       closePanel();
       fetchData();
     } catch (err) {
-      showAlert(err.response?.data?.message || "Error updating record.", "danger");
+      showAlert(
+        err.response?.data?.message || "Error updating record.",
+        "danger",
+      );
     } finally {
       setLoading(false);
     }
@@ -182,7 +191,11 @@ export default function UsersDebt() {
     const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
     setConfirmModal({ show: false, sno: null, currentStatus: "" });
     try {
-      await axios.patch(`${API}/toggle/${sno}`, { status: newStatus }, { headers });
+      await axios.patch(
+        `${API}/toggle/${sno}`,
+        { status: newStatus },
+        { headers },
+      );
       fetchData();
     } catch {
       showAlert("Failed to toggle status.", "danger");
@@ -197,7 +210,10 @@ export default function UsersDebt() {
       <div className="container-fluid px-3 py-3">
         {/* Breadcrumb */}
         <div className="d-flex align-items-center gap-2 mb-3">
-          <button className="btn btn-sm back-btn" onClick={() => navigate("/masters")}>
+          <button
+            className="btn btn-sm back-btn"
+            onClick={() => navigate("/masters")}
+          >
             <i className="bi bi-arrow-left-circle-fill me-1"></i>Back
           </button>
           <span className="text-muted" style={{ fontSize: "0.88rem" }}>
@@ -206,7 +222,8 @@ export default function UsersDebt() {
         </div>
 
         <h5 className="master-page-title mb-3">
-          <i className="bi bi-person-badge-fill me-2"></i>Application Engineers Master
+          <i className="bi bi-person-badge-fill me-2"></i>Application Engineers
+          Master
         </h5>
 
         {alert.msg && (
@@ -243,7 +260,10 @@ export default function UsersDebt() {
               Records: <strong>{filtered.length}</strong>
             </span>
             {canEdit && (
-              <button className="btn btn-sm btn-primary-custom" onClick={openAdd}>
+              <button
+                className="btn btn-sm btn-primary-custom"
+                onClick={openAdd}
+              >
                 <i className="bi bi-plus-circle-fill me-1"></i>Add
               </button>
             )}
@@ -283,17 +303,23 @@ export default function UsersDebt() {
                       onDoubleClick={() => canEdit && openEdit(row)}
                       style={{ cursor: canEdit ? "pointer" : "default" }}
                       className={
-                        panel === "edit" && editSno === row.Sno ? "table-active" : ""
+                        panel === "edit" && editSno === row.Sno
+                          ? "table-active"
+                          : ""
                       }
                     >
                       <td>{(page - 1) * PAGE_SIZE + idx + 1}</td>
                       <td>{row.Username}</td>
-                      <td style={{ fontSize: "0.82rem" }}>{row.Email || "—"}</td>
+                      <td style={{ fontSize: "0.82rem" }}>
+                        {row.Email || "—"}
+                      </td>
                       <td className="text-center">
                         {canEdit ? (
                           <button
                             className={`btn btn-xs status-btn ${
-                              row.status === "Active" ? "status-active" : "status-inactive"
+                              row.status === "Active"
+                                ? "status-active"
+                                : "status-inactive"
                             }`}
                             onClick={() =>
                               setConfirmModal({
@@ -335,12 +361,15 @@ export default function UsersDebt() {
                   </button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
                     .filter(
-                      (p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2,
+                      (p) =>
+                        p === 1 || p === totalPages || Math.abs(p - page) <= 2,
                     )
                     .map((p, i, arr) => (
                       <>
                         {i > 0 && arr[i - 1] !== p - 1 && (
-                          <span key={`e${p}`} className="btn btn-sm disabled">…</span>
+                          <span key={`e${p}`} className="btn btn-sm disabled">
+                            …
+                          </span>
                         )}
                         <button
                           key={p}
@@ -370,18 +399,27 @@ export default function UsersDebt() {
               style={{ flex: "0 0 40%", maxHeight: "82vh", overflowY: "auto" }}
             >
               <div className="panel-header d-flex justify-content-between align-items-center mb-3">
-                <h6 className="mb-0" style={{ color: "#800000", fontWeight: 700 }}>
+                <h6
+                  className="mb-0"
+                  style={{ color: "#800000", fontWeight: 700 }}
+                >
                   <i
                     className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}
                   ></i>
                   {panel === "add" ? "Add Engineer" : "Modify Engineer"}
                 </h6>
-                <button className="btn btn-sm btn-outline-secondary" onClick={closePanel}>
+                <button
+                  className="btn btn-sm btn-outline-secondary"
+                  onClick={closePanel}
+                >
                   <i className="bi bi-x-lg"></i>
                 </button>
               </div>
 
-              <form onSubmit={panel === "add" ? handleAdd : handleEdit} noValidate>
+              <form
+                onSubmit={panel === "add" ? handleAdd : handleEdit}
+                noValidate
+              >
                 {/* Name */}
                 <div className="mb-2">
                   <label className="form-label panel-label">
@@ -476,7 +514,9 @@ export default function UsersDebt() {
             <p className="mb-4">
               Do you want to make the Engineer{" "}
               <strong>
-                {confirmModal.currentStatus === "Active" ? "Inactive" : "Active"}
+                {confirmModal.currentStatus === "Active"
+                  ? "Inactive"
+                  : "Active"}
               </strong>
               ?
             </p>
