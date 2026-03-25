@@ -4,8 +4,8 @@ import axios from "axios";
 import DashboardNavbar from "../../components/DashboardNavbar";
 import { getAuth, isLoggedIn } from "../../utils/auth";
 
-const API = "http://localhost:5001/api/country-type";
-const PAGE_SIZE = 50;
+const API = "http://localhost:5001/api/customer-type";
+const PAGESIZE = 50;
 
 export default function CustomerTypeMaster() {
   const navigate = useNavigate();
@@ -55,7 +55,6 @@ export default function CustomerTypeMaster() {
     fetchData();
   }, [fetchData]);
 
-  // ── Live Search ─────────────────────────────────────────────────────────────
   const handleLiveSearch = (e) => {
     const val = e.target.value;
     setSearchVal(val);
@@ -65,7 +64,7 @@ export default function CustomerTypeMaster() {
         ? allData
         : allData.filter((row) =>
             [row.CustomerType, row.status]
-              .map((v) => (v || "").toLowerCase())
+              .map((v) => (v ?? "").toLowerCase())
               .some((v) => v.includes(q)),
           ),
     );
@@ -78,13 +77,8 @@ export default function CustomerTypeMaster() {
     setPage(1);
   };
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  const pageNumbers = Array.from(
-    { length: totalPages },
-    (_, i) => i + 1,
-  ).filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2);
+  const totalPages = Math.ceil(filtered.length / PAGESIZE);
+  const paginated = filtered.slice((page - 1) * PAGESIZE, page * PAGESIZE);
 
   const openAdd = () => {
     setAddValue("");
@@ -103,17 +97,19 @@ export default function CustomerTypeMaster() {
     if (!val.trim()) return;
     try {
       const { data } = await axios.get(
-        `${API}/check?val=${encodeURIComponent(val)}`,
+        `${API}/check?val=${encodeURIComponent(val.trim())}`,
         { headers },
       );
       if (data.exists) setDupError(data.message);
       else setDupError("");
-    } catch {}
+    } catch {
+      setDupError("");
+    }
   };
 
   const handleAdd = async (e) => {
     e.preventDefault();
-    if (dupError) return;
+    if (dupError || !addValue.trim()) return;
     setLoading(true);
     try {
       const { data } = await axios.post(
@@ -150,6 +146,11 @@ export default function CustomerTypeMaster() {
     }
   };
 
+  const pageNumbers = Array.from(
+    { length: totalPages },
+    (_, i) => i + 1,
+  ).filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2);
+
   return (
     <>
       <DashboardNavbar />
@@ -160,7 +161,8 @@ export default function CustomerTypeMaster() {
             className="btn btn-sm back-btn"
             onClick={() => navigate("/masters")}
           >
-            <i className="bi bi-arrow-left-circle-fill me-1"></i>Back
+            <i className="bi bi-arrow-left-circle-fill me-1" />
+            Back
           </button>
           <span className="text-muted" style={{ fontSize: "0.88rem" }}>
             Masters &rsaquo; <strong>Customer Type</strong>
@@ -168,26 +170,28 @@ export default function CustomerTypeMaster() {
         </div>
 
         <h5 className="master-page-title mb-3">
-          <i className="bi bi-tags-fill me-2"></i>Customer Type Master
+          <i className="bi bi-tag me-2" />
+          Customer Type Master
         </h5>
 
+        {/* Alert */}
         {alert.msg && (
           <div className={`alert alert-${alert.type} py-2`} role="alert">
             {alert.msg}
           </div>
         )}
 
-        {/* ── Live Search Toolbar ───────────────────────────────────── */}
+        {/* Toolbar */}
         <div className="master-toolbar mb-3 d-flex flex-wrap align-items-center gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
-              Customer Type
+              Search
             </label>
             <input
               type="text"
               className="form-control form-control-sm"
-              style={{ width: "220px" }}
-              placeholder="Search by Customer Type..."
+              style={{ width: 240 }}
+              placeholder="Search Customer Type..."
               value={searchVal}
               onChange={handleLiveSearch}
             />
@@ -197,19 +201,21 @@ export default function CustomerTypeMaster() {
               className="btn btn-sm btn-outline-secondary align-self-end"
               onClick={handleClear}
             >
-              <i className="bi bi-x-circle me-1"></i>Clear
+              <i className="bi bi-x-circle me-1" />
+              Clear
             </button>
           )}
           <div className="ms-auto d-flex align-items-center gap-2">
             <span className="text-muted" style={{ fontSize: "0.82rem" }}>
-              Records: <strong>{filtered.length}</strong>
+              Records <strong>{filtered.length}</strong>
             </span>
             {canEdit && (
               <button
                 className="btn btn-sm btn-primary-custom"
                 onClick={openAdd}
               >
-                <i className="bi bi-plus-circle-fill me-1"></i>Add
+                <i className="bi bi-plus-circle-fill me-1" />
+                Add
               </button>
             )}
           </div>
@@ -229,7 +235,7 @@ export default function CustomerTypeMaster() {
             <table className="table table-bordered table-hover master-table mb-0">
               <thead>
                 <tr>
-                  <th style={{ width: "10%" }}>S.No</th>
+                  <th style={{ width: "8%" }}>S.No</th>
                   <th>Customer Type</th>
                   <th style={{ width: "14%" }}>Status</th>
                   {canEdit && <th style={{ width: "12%" }}>Action</th>}
@@ -248,20 +254,8 @@ export default function CustomerTypeMaster() {
                 ) : (
                   paginated.map((row, idx) => (
                     <tr key={row.Sno}>
-                      <td>{(page - 1) * PAGE_SIZE + idx + 1}</td>
-                      <td>
-                        <span
-                          className="badge"
-                          style={{
-                            backgroundColor: "#800000",
-                            color: "#fff",
-                            fontSize: "0.78rem",
-                            letterSpacing: "0.03em",
-                          }}
-                        >
-                          {row.CustomerType}
-                        </span>
-                      </td>
+                      <td>{(page - 1) * PAGESIZE + idx + 1}</td>
+                      <td style={{ fontWeight: 500 }}>{row.CustomerType}</td>
                       <td>
                         <span
                           className={`badge ${
@@ -281,14 +275,15 @@ export default function CustomerTypeMaster() {
                                 ? "status-active"
                                 : "status-inactive"
                             }`}
-                            onClick={() =>
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setConfirmModal({
                                 show: true,
                                 sno: row.Sno,
                                 currentStatus: row.status,
                                 name: row.CustomerType,
-                              })
-                            }
+                              });
+                            }}
                           >
                             {row.status}
                           </button>
@@ -300,6 +295,7 @@ export default function CustomerTypeMaster() {
               </tbody>
             </table>
 
+            {/* Pagination */}
             {totalPages > 1 && (
               <div className="d-flex justify-content-between align-items-center mt-2 px-1">
                 <small className="text-muted">
@@ -311,18 +307,27 @@ export default function CustomerTypeMaster() {
                     disabled={page === 1}
                     onClick={() => setPage((p) => p - 1)}
                   >
-                    <i className="bi bi-chevron-left"></i>
+                    <i className="bi bi-chevron-left" />
                   </button>
-                  {pageNumbers.map((p, i, arr) => (
-                    <>
-                      {i > 0 && arr[i - 1] !== p - 1 && (
-                        <span
-                          key={`ellipsis-${p}`}
-                          className="btn btn-sm disabled"
-                        >
+                  {pageNumbers.map((p, i, arr) =>
+                    i > 0 && arr[i - 1] !== p - 1 ? (
+                      <>
+                        <span key={`e${p}`} className="btn btn-sm disabled">
                           …
                         </span>
-                      )}
+                        <button
+                          key={p}
+                          className={`btn btn-sm ${
+                            page === p
+                              ? "btn-primary-custom"
+                              : "btn-outline-secondary"
+                          }`}
+                          onClick={() => setPage(p)}
+                        >
+                          {p}
+                        </button>
+                      </>
+                    ) : (
                       <button
                         key={p}
                         className={`btn btn-sm ${
@@ -334,14 +339,14 @@ export default function CustomerTypeMaster() {
                       >
                         {p}
                       </button>
-                    </>
-                  ))}
+                    ),
+                  )}
                   <button
                     className="btn btn-sm btn-outline-secondary"
                     disabled={page === totalPages}
                     onClick={() => setPage((p) => p + 1)}
                   >
-                    <i className="bi bi-chevron-right"></i>
+                    <i className="bi bi-chevron-right" />
                   </button>
                 </div>
               </div>
@@ -351,19 +356,19 @@ export default function CustomerTypeMaster() {
           {/* Add Panel */}
           {panel === "add" && (
             <div className="master-side-panel" style={{ flex: "0 0 41%" }}>
-              <div className="panel-header d-flex justify-content-between align-items-center mb-3">
+              <div className="d-flex justify-content-between align-items-center mb-3">
                 <h6
                   className="mb-0"
                   style={{ color: "#800000", fontWeight: 700 }}
                 >
-                  <i className="bi bi-plus-circle-fill me-2"></i>
+                  <i className="bi bi-plus-circle-fill me-2" />
                   Create Customer Type
                 </h6>
                 <button
                   className="btn btn-sm btn-outline-secondary"
                   onClick={closePanel}
                 >
-                  <i className="bi bi-x-lg"></i>
+                  <i className="bi bi-x-lg" />
                 </button>
               </div>
 
@@ -372,7 +377,7 @@ export default function CustomerTypeMaster() {
                   className="alert alert-danger py-1 mb-3"
                   style={{ fontSize: "0.8rem" }}
                 >
-                  <i className="bi bi-exclamation-triangle-fill me-1"></i>
+                  <i className="bi bi-exclamation-triangle-fill me-1" />
                   {dupError}
                 </div>
               )}
@@ -408,11 +413,10 @@ export default function CustomerTypeMaster() {
                     className="btn btn-sm btn-primary-custom flex-fill"
                     disabled={loading || !!dupError || !addValue.trim()}
                   >
-                    {loading ? (
-                      <span className="spinner-border spinner-border-sm me-1"></span>
-                    ) : (
-                      <i className="bi bi-check-circle me-1"></i>
+                    {loading && (
+                      <span className="spinner-border spinner-border-sm me-1" />
                     )}
+                    <i className="bi bi-check-circle me-1" />
                     Save
                   </button>
                   <button
@@ -429,15 +433,17 @@ export default function CustomerTypeMaster() {
         </div>
       </div>
 
+      {/* Confirm Toggle Modal */}
       {confirmModal.show && (
         <div className="modal-backdrop-custom">
           <div className="confirm-modal">
             <h6 className="mb-3" style={{ color: "#800000" }}>
-              <i className="bi bi-exclamation-triangle-fill me-2"></i>
+              <i className="bi bi-exclamation-triangle-fill me-2" />
               Confirmation
             </h6>
             <p className="mb-4" style={{ fontSize: "0.88rem" }}>
-              Do you want to make <strong>{confirmModal.name}</strong>{" "}
+              Do you want to make Customer Type{" "}
+              <strong>{confirmModal.name}</strong>{" "}
               <strong>
                 {confirmModal.currentStatus === "Active"
                   ? "Inactive"

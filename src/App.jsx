@@ -14,7 +14,7 @@ import GEReference from "./pages/masters/GEReference";
 import Discount from "./pages/masters/Discount";
 import SpclDiscount from "./pages/masters/SpclDiscount";
 import EndIndustry from "./pages/masters/EndIndustry";
-import CountryType from "./pages/masters/CountryType";
+import CustomerType from "./pages/masters/CustomerType"; // ← RENAMED from CountryType
 import StatusMaster from "./pages/masters/StatusMaster";
 import Reason from "./pages/masters/Reason";
 import TimelineTarget from "./pages/masters/TimelineTarget";
@@ -163,7 +163,7 @@ export default function App() {
           path="/masters/country-type"
           element={
             <ProtectedRoute>
-              <CountryType />
+              <CustomerType /> {/* ← component renamed, path stays same */}
             </ProtectedRoute>
           }
         />

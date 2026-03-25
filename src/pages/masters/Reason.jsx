@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import DashboardNavbar from "../../components/DashboardNavbar";
-import { getAuth, isLoggedIn } from "../../utils/auth";
+import { isLoggedIn, getAuth } from "../../utils/auth";
 
 const API = "http://localhost:5001/api/reason";
 const PAGE_SIZE = 50;
@@ -64,7 +64,8 @@ export default function Reason() {
         ? allData
         : allData.filter(
             (row) =>
-              (row.ReasonCode || "").toLowerCase().includes(q) ||
+              // ✅ FIXED: was row.ReasonCode → now row.Reason_Code
+              (row.Reason_Code || "").toLowerCase().includes(q) ||
               (row.Description || "").toLowerCase().includes(q),
           ),
     );
@@ -97,8 +98,12 @@ export default function Reason() {
   // ── Double-click → Open Edit ───────────────────────────────────────────────
   const handleRowDblClick = (row) => {
     setEditSno(row.Sno);
-    setEditCodeLocked(row.ReasonCode);
-    setForm({ ReasonCode: row.ReasonCode, Description: row.Description || "" });
+    // ✅ FIXED: was row.ReasonCode → now row.Reason_Code
+    setEditCodeLocked(row.Reason_Code);
+    setForm({
+      ReasonCode: row.Reason_Code,
+      Description: row.Description || "",
+    });
     setDupError("");
     setAlert({ msg: "", type: "" });
     setPanel("edit");
@@ -116,8 +121,9 @@ export default function Reason() {
   const checkDuplicate = async (val) => {
     if (!val.trim()) return;
     try {
+      // ✅ FIXED: was ?reason= → now ?reasoncode=
       const { data } = await axios.get(
-        `${API}/check?reason=${encodeURIComponent(val)}`,
+        `${API}/check?reasoncode=${encodeURIComponent(val)}`,
         { headers },
       );
       if (data.exists) setDupError(data.message);
@@ -128,12 +134,14 @@ export default function Reason() {
   // ── ADD ────────────────────────────────────────────────────────────────────
   const handleAdd = async (e) => {
     e.preventDefault();
+    if (!form.ReasonCode.trim())
+      return showAlert("Reason Code is required.", "warning");
     if (dupError) return;
     setLoading(true);
     try {
       const { data } = await axios.post(
         API,
-        { ReasonCode: form.ReasonCode, Description: form.Description },
+        { Reason_Code: form.ReasonCode, Description: form.Description },
         { headers },
       );
       showAlert(data.message, "success");
@@ -286,7 +294,8 @@ export default function Reason() {
                             letterSpacing: "0.04em",
                           }}
                         >
-                          {row.ReasonCode}
+                          {/* ✅ FIXED: was row.ReasonCode → now row.Reason_Code */}
+                          {row.Reason_Code}
                         </span>
                       </td>
                       <td style={{ fontSize: "0.83rem", color: "#444" }}>
@@ -312,21 +321,18 @@ export default function Reason() {
                   >
                     <i className="bi bi-chevron-left"></i>
                   </button>
-                  {pageNumbers.map((p, i, arr) => (
-                    <>
-                      {i > 0 && arr[i - 1] !== p - 1 && (
-                        <span key={`e${p}`} className="btn btn-sm disabled">
-                          …
-                        </span>
-                      )}
-                      <button
-                        key={p}
-                        className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
-                        onClick={() => setPage(p)}
-                      >
-                        {p}
-                      </button>
-                    </>
+                  {pageNumbers.map((p) => (
+                    <button
+                      key={p}
+                      className={`btn btn-sm ${
+                        p === page
+                          ? "btn-primary-custom"
+                          : "btn-outline-secondary"
+                      }`}
+                      onClick={() => setPage(p)}
+                    >
+                      {p}
+                    </button>
                   ))}
                   <button
                     className="btn btn-sm btn-outline-secondary"
@@ -340,18 +346,23 @@ export default function Reason() {
             )}
           </div>
 
-          {/* ── Side Panel (Add / Edit) ──────────────────────────────── */}
+          {/* ── Side Panel ────────────────────────────────────────────── */}
           {panel && (
-            <div className="master-side-panel" style={{ flex: "0 0 41%" }}>
-              <div className="panel-header d-flex justify-content-between align-items-center mb-3">
+            <div className="master-side-panel" style={{ flex: "0 0 40%" }}>
+              <div className="d-flex justify-content-between align-items-center mb-3">
                 <h6
                   className="mb-0"
                   style={{ color: "#800000", fontWeight: 700 }}
                 >
-                  <i
-                    className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}
-                  ></i>
-                  {panel === "add" ? "Create Reason" : "Edit Reason"}
+                  {panel === "add" ? (
+                    <>
+                      <i className="bi bi-plus-circle-fill me-2"></i>Add Reason
+                    </>
+                  ) : (
+                    <>
+                      <i className="bi bi-pencil-fill me-2"></i>Edit Reason
+                    </>
+                  )}
                 </h6>
                 <button
                   className="btn btn-sm btn-outline-secondary"
@@ -361,107 +372,70 @@ export default function Reason() {
                 </button>
               </div>
 
-              {dupError && (
-                <div
-                  className="alert alert-danger py-1 mb-3"
-                  style={{ fontSize: "0.8rem" }}
-                >
-                  <i className="bi bi-exclamation-triangle-fill me-1"></i>
-                  {dupError}
-                </div>
-              )}
-
               <form
                 onSubmit={panel === "add" ? handleAdd : handleEdit}
-                noValidate
+                autoComplete="off"
               >
                 {/* Reason Code */}
                 <div className="mb-3">
-                  <label className="form-label panel-label">
+                  <label className="panel-label">
                     Reason Code <span className="text-danger">*</span>
                   </label>
-                  {panel === "add" ? (
-                    <>
-                      <input
-                        type="text"
-                        className={`form-control form-control-sm ${dupError ? "is-invalid" : ""}`}
-                        value={form.ReasonCode}
-                        onChange={(e) => {
-                          const v = e.target.value.toUpperCase();
-                          setForm((f) => ({ ...f, ReasonCode: v }));
-                          setDupError("");
-                          if (v.trim()) checkDuplicate(v);
-                        }}
-                        required
-                        placeholder="e.g. PRICE"
-                        maxLength={10}
-                        autoFocus
-                      />
-                      <small
-                        className="text-muted"
-                        style={{ fontSize: "0.74rem" }}
-                      >
-                        Auto-converted to UPPERCASE. Max 10 characters.
-                      </small>
-                    </>
-                  ) : (
+                  {panel === "edit" ? (
                     <input
-                      type="text"
-                      className="form-control form-control-sm"
+                      className="form-control form-control-sm readonly-field"
                       value={editCodeLocked}
                       readOnly
-                      style={{
-                        backgroundColor: "#f5f5f5",
-                        cursor: "not-allowed",
-                        fontWeight: 600,
-                      }}
                     />
+                  ) : (
+                    <input
+                      className={`form-control form-control-sm ${dupError ? "is-invalid" : ""}`}
+                      placeholder="e.g. PRICE_HIGH"
+                      value={form.ReasonCode}
+                      onChange={(e) => {
+                        setForm((f) => ({ ...f, ReasonCode: e.target.value }));
+                        setDupError("");
+                      }}
+                      onBlur={(e) => checkDuplicate(e.target.value)}
+                      required
+                    />
+                  )}
+                  {dupError && (
+                    <div
+                      className="invalid-feedback d-block"
+                      style={{ fontSize: "0.78rem" }}
+                    >
+                      <i className="bi bi-exclamation-circle me-1"></i>
+                      {dupError}
+                    </div>
                   )}
                 </div>
 
                 {/* Description */}
-                <div className="mb-4">
-                  <label className="form-label panel-label">
-                    Description <span className="text-danger">*</span>
-                  </label>
+                <div className="mb-3">
+                  <label className="panel-label">Description</label>
                   <textarea
                     className="form-control form-control-sm"
-                    rows={4}
-                    maxLength={150}
+                    rows={3}
+                    placeholder="Optional description..."
                     value={form.Description}
                     onChange={(e) =>
                       setForm((f) => ({ ...f, Description: e.target.value }))
                     }
-                    required
-                    placeholder="Enter reason description..."
-                    autoFocus={panel === "edit"}
                   />
-                  <small className="text-muted" style={{ fontSize: "0.74rem" }}>
-                    Required. Max 150 characters.
-                  </small>
                 </div>
 
+                {/* Buttons */}
                 <div className="d-flex gap-2">
                   <button
                     type="submit"
                     className="btn btn-sm btn-primary-custom flex-fill"
-                    disabled={
-                      loading ||
-                      (panel === "add" &&
-                        (!!dupError ||
-                          !form.ReasonCode.trim() ||
-                          !form.Description.trim())) ||
-                      (panel === "edit" && !form.Description.trim())
-                    }
+                    disabled={loading || (panel === "add" && !!dupError)}
                   >
                     {loading ? (
                       <span className="spinner-border spinner-border-sm me-1"></span>
-                    ) : (
-                      <i
-                        className={`bi ${panel === "add" ? "bi-check-circle" : "bi-save"} me-1`}
-                      ></i>
-                    )}
-                    {panel === "add" ? "Save" : "Update"}
+                    ) : null}
+                    {panel === "add" ? "Add" : "Save Changes"}
                   </button>
                   <button
                     type="button"

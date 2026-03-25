@@ -9,7 +9,7 @@ const PAGE_SIZE = 50;
 
 const emptyForm = {
   Customer: "",
-  Buyername: "",
+  Buyer_name: "", // ← FIXED (was Buyername)
   Designation: "",
   email1: "",
   email2: "",
@@ -31,7 +31,6 @@ export default function Buyer() {
   const [filtered, setFiltered] = useState([]);
   const [page, setPage] = useState(1);
   const [searchVal, setSearchVal] = useState("");
-
   const [panel, setPanel] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [editSno, setEditSno] = useState(null);
@@ -78,7 +77,6 @@ export default function Buyer() {
     fetchData();
   }, [fetchData]);
 
-  // ── Auto-fill Location & Segment on customer select ───────────────────────
   const handleCustomerChange = (custname) => {
     const found = customers.find((c) => c.customername === custname);
     if (found) {
@@ -102,7 +100,6 @@ export default function Buyer() {
     }
   };
 
-  // ── Live Search across ALL columns ────────────────────────────────────────
   const handleLiveSearch = (e) => {
     const val = e.target.value;
     setSearchVal(val);
@@ -113,7 +110,7 @@ export default function Buyer() {
         : allData.filter((row) =>
             [
               row.Customer,
-              row.Buyername,
+              row.Buyer_name, // ← FIXED (was row.Buyername)
               row.Designation,
               row.email1,
               row.email2,
@@ -136,11 +133,9 @@ export default function Buyer() {
     setPage(1);
   };
 
-  // ── Pagination ────────────────────────────────────────────────────────────
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  // ── Panel ─────────────────────────────────────────────────────────────────
   const openAdd = () => {
     setForm(emptyForm);
     setFieldErrors({});
@@ -151,7 +146,7 @@ export default function Buyer() {
   const openEdit = (row) => {
     if (row.status === "Inactive") {
       showAlert(
-        `"${row.Buyername}" is Inactive and cannot be edited.`,
+        `"${row.Buyer_name}" is Inactive and cannot be edited.`, // ← FIXED
         "warning",
       );
       return;
@@ -159,7 +154,7 @@ export default function Buyer() {
     const contacts = (row.contact || "").split(",");
     setForm({
       Customer: row.Customer || "",
-      Buyername: row.Buyername || "",
+      Buyer_name: row.Buyer_name || "", // ← FIXED (was Buyername)
       Designation: row.Designation || "",
       email1: row.email1 || "",
       email2: row.email2 || "",
@@ -182,7 +177,6 @@ export default function Buyer() {
     setFieldErrors({});
   };
 
-  // ── Duplicate checks ──────────────────────────────────────────────────────
   const checkField = async (params) => {
     try {
       const query = new URLSearchParams(params).toString();
@@ -207,7 +201,6 @@ export default function Buyer() {
       return e;
     });
 
-  // ── ADD ───────────────────────────────────────────────────────────────────
   const handleAdd = async (e) => {
     e.preventDefault();
     if (Object.keys(fieldErrors).length > 0) return;
@@ -224,7 +217,6 @@ export default function Buyer() {
     }
   };
 
-  // ── EDIT ──────────────────────────────────────────────────────────────────
   const handleEdit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -256,7 +248,6 @@ export default function Buyer() {
     }
   };
 
-  // ── TOGGLE ────────────────────────────────────────────────────────────────
   const handleToggle = async () => {
     const { sno, currentStatus } = confirmModal;
     const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
@@ -279,7 +270,6 @@ export default function Buyer() {
     <>
       <DashboardNavbar />
       <div className="container-fluid px-3 py-3">
-        {/* Breadcrumb */}
         <div className="d-flex align-items-center gap-2 mb-3">
           <button
             className="btn btn-sm back-btn"
@@ -302,7 +292,6 @@ export default function Buyer() {
           </div>
         )}
 
-        {/* ── Live Search Toolbar ───────────────────────────────── */}
         <div className="master-toolbar mb-3 d-flex flex-wrap align-items-center gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
@@ -340,9 +329,7 @@ export default function Buyer() {
           </div>
         </div>
 
-        {/* ── Table + Panel ────────────────────────────────────────── */}
         <div className="d-flex gap-3" style={{ minHeight: "60vh" }}>
-          {/* Table */}
           <div
             className="master-table-wrapper"
             style={{
@@ -385,7 +372,7 @@ export default function Buyer() {
                     >
                       <td>{(page - 1) * PAGE_SIZE + idx + 1}</td>
                       <td>{row.Customer}</td>
-                      <td>{row.Buyername}</td>
+                      <td>{row.Buyer_name}</td> {/* ← FIXED */}
                       <td>{row.Designation || "—"}</td>
                       <td style={{ fontSize: "0.82rem" }}>
                         {row.email1 || "—"}
@@ -436,7 +423,6 @@ export default function Buyer() {
               </tbody>
             </table>
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="d-flex justify-content-between align-items-center mt-2 px-1">
                 <small className="text-muted">
@@ -483,7 +469,6 @@ export default function Buyer() {
             )}
           </div>
 
-          {/* ── Side Panel ─────────────────────────────────────── */}
           {panel && (
             <div
               className="master-side-panel"
@@ -545,7 +530,7 @@ export default function Buyer() {
                   )}
                 </div>
 
-                {/* Location — locked always */}
+                {/* Location */}
                 <div className="mb-2">
                   <label className="form-label panel-label">Location</label>
                   <input
@@ -558,7 +543,7 @@ export default function Buyer() {
                   />
                 </div>
 
-                {/* Buyer Name — locked in edit */}
+                {/* Buyer Name */}
                 <div className="mb-2">
                   <label className="form-label panel-label">
                     Buyer Name <span className="text-danger">*</span>
@@ -566,18 +551,18 @@ export default function Buyer() {
                   <input
                     type="text"
                     className={`form-control form-control-sm ${fieldErrors.buyer ? "is-invalid" : ""}`}
-                    value={form.Buyername}
+                    value={form.Buyer_name} // ← FIXED
                     onChange={(e) => {
-                      setForm({ ...form, Buyername: e.target.value });
+                      setForm({ ...form, Buyer_name: e.target.value }); // ← FIXED
                       clearErr("buyer");
                     }}
                     onBlur={() =>
                       panel === "add" &&
                       form.Customer &&
-                      form.Buyername &&
+                      form.Buyer_name && // ← FIXED
                       checkField({
                         customer: form.Customer,
-                        buyer: form.Buyername,
+                        buyer: form.Buyer_name, // ← FIXED
                       })
                     }
                     readOnly={panel === "edit"}
@@ -729,7 +714,7 @@ export default function Buyer() {
                   )}
                 </div>
 
-                {/* Segment — locked always */}
+                {/* Segment */}
                 <div className="mb-2">
                   <label className="form-label panel-label">Segment</label>
                   <input
@@ -786,7 +771,6 @@ export default function Buyer() {
         </div>
       </div>
 
-      {/* ── Confirm Toggle Modal ──────────────────────────────────── */}
       {confirmModal.show && (
         <div className="modal-backdrop-custom">
           <div className="confirm-modal">

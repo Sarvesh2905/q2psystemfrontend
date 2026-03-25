@@ -11,9 +11,9 @@ const CURRENCIES = ["INR", "USD", "EUR"];
 const MARKETS = ["FM", "AM"];
 
 const emptyForm = {
-  Cftipartno: "",
+  Cfti_partno: "", // ← FIXED
   Description: "",
-  CostPrice: "",
+  Cost_Price: "", // ← FIXED
   Currency: "INR",
   Product: "",
   Market: "",
@@ -50,7 +50,6 @@ export default function CostPrice() {
     if (!isLoggedIn()) navigate("/login", { replace: true });
   }, []);
 
-  // ── Fetch data ──────────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     try {
       const { data } = await axios.get(API, { headers });
@@ -66,7 +65,6 @@ export default function CostPrice() {
     fetchData();
   }, [fetchData]);
 
-  // ── Fetch products ──────────────────────────────────────────────────────────
   const fetchProducts = useCallback(async () => {
     try {
       const { data } = await axios.get(`${API}/products`, { headers });
@@ -79,7 +77,6 @@ export default function CostPrice() {
     setTimeout(() => setAlert({ msg: "", type: "" }), 4500);
   };
 
-  // ── Live Search ─────────────────────────────────────────────────────────────
   const handleLiveSearch = (e) => {
     const val = e.target.value;
     setSearchVal(val);
@@ -89,7 +86,7 @@ export default function CostPrice() {
         ? allData
         : allData.filter((row) =>
             [
-              row.Cftipartno,
+              row.Cfti_partno, // ← FIXED
               row.Description,
               row.Currency,
               row.Product,
@@ -109,11 +106,9 @@ export default function CostPrice() {
     setPage(1);
   };
 
-  // ── Pagination ──────────────────────────────────────────────────────────────
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  // ── Open Add ────────────────────────────────────────────────────────────────
   const openAdd = async () => {
     await fetchProducts();
     setForm(emptyForm);
@@ -122,22 +117,21 @@ export default function CostPrice() {
     setPanel("add");
   };
 
-  // ── Double-click → Edit ─────────────────────────────────────────────────────
   const handleRowDblClick = async (row) => {
     if (row.status === "Inactive") {
       showAlert(
-        `"${row.Cftipartno}" is Inactive and cannot be edited.`,
+        `"${row.Cfti_partno}" is Inactive and cannot be edited.`, // ← FIXED
         "warning",
       );
       return;
     }
     await fetchProducts();
     setEditSno(row.Sno);
-    setEditPartLocked(row.Cftipartno);
+    setEditPartLocked(row.Cfti_partno); // ← FIXED
     setForm({
-      Cftipartno: row.Cftipartno,
+      Cfti_partno: row.Cfti_partno, // ← FIXED
       Description: row.Description || "",
-      CostPrice: String(row.CostPrice),
+      Cost_Price: String(row.Cost_Price), // ← FIXED
       Currency: row.Currency || "INR",
       Product: row.Product || "",
       Market: row.Market || "",
@@ -155,7 +149,6 @@ export default function CostPrice() {
     setEditPartLocked("");
   };
 
-  // ── Duplicate check ─────────────────────────────────────────────────────────
   const checkDuplicate = async (val) => {
     if (!val.trim()) return;
     try {
@@ -172,7 +165,6 @@ export default function CostPrice() {
     setForm((f) => ({ ...f, [key]: val }));
   };
 
-  // ── ADD ─────────────────────────────────────────────────────────────────────
   const handleAdd = async (e) => {
     e.preventDefault();
     if (dupError) return;
@@ -192,7 +184,6 @@ export default function CostPrice() {
     }
   };
 
-  // ── EDIT ────────────────────────────────────────────────────────────────────
   const handleEdit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -211,7 +202,6 @@ export default function CostPrice() {
     }
   };
 
-  // ── TOGGLE ──────────────────────────────────────────────────────────────────
   const handleToggle = async () => {
     const { sno, currentStatus } = confirmModal;
     const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
@@ -237,7 +227,6 @@ export default function CostPrice() {
     <>
       <DashboardNavbar />
       <div className="container-fluid px-3 py-3">
-        {/* Breadcrumb */}
         <div className="d-flex align-items-center gap-2 mb-3">
           <button
             className="btn btn-sm back-btn"
@@ -260,7 +249,6 @@ export default function CostPrice() {
           </div>
         )}
 
-        {/* ── Live Search Toolbar ───────────────────────────────────── */}
         <div className="master-toolbar mb-3 d-flex flex-wrap align-items-center gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
@@ -298,9 +286,7 @@ export default function CostPrice() {
           </div>
         </div>
 
-        {/* ── Table + Panel ──────────────────────────────────────────── */}
         <div className="d-flex gap-3" style={{ minHeight: "60vh" }}>
-          {/* Table */}
           <div
             className="master-table-wrapper"
             style={{
@@ -359,7 +345,7 @@ export default function CostPrice() {
                             fontSize: "0.75rem",
                           }}
                         >
-                          {row.Cftipartno}
+                          {row.Cfti_partno} {/* ← FIXED */}
                         </span>
                       </td>
                       <td style={{ fontSize: "0.82rem", color: "#444" }}>
@@ -368,7 +354,7 @@ export default function CostPrice() {
                         )}
                       </td>
                       <td className="text-end" style={{ fontWeight: 600 }}>
-                        {Number(row.CostPrice).toFixed(2)}
+                        {Number(row.Cost_Price).toFixed(2)} {/* ← FIXED */}
                       </td>
                       <td className="text-center">
                         <span className="badge bg-secondary">
@@ -396,18 +382,14 @@ export default function CostPrice() {
                       {canEdit && (
                         <td className="text-center">
                           <button
-                            className={`btn btn-xs status-btn ${
-                              row.status === "Active"
-                                ? "status-active"
-                                : "status-inactive"
-                            }`}
+                            className={`btn btn-xs status-btn ${row.status === "Active" ? "status-active" : "status-inactive"}`}
                             onClick={(e) => {
                               e.stopPropagation();
                               setConfirmModal({
                                 show: true,
                                 sno: row.Sno,
                                 currentStatus: row.status,
-                                name: row.Cftipartno,
+                                name: row.Cfti_partno, // ← FIXED
                               });
                             }}
                           >
@@ -421,7 +403,6 @@ export default function CostPrice() {
               </tbody>
             </table>
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="d-flex justify-content-between align-items-center mt-2 px-1">
                 <small className="text-muted">
@@ -463,7 +444,6 @@ export default function CostPrice() {
             )}
           </div>
 
-          {/* ── Side Panel ──────────────────────────────────────────── */}
           {panel && (
             <div className="master-side-panel" style={{ flex: "0 0 41%" }}>
               <div className="panel-header d-flex justify-content-between align-items-center mb-3">
@@ -508,10 +488,10 @@ export default function CostPrice() {
                       <input
                         type="text"
                         className={`form-control form-control-sm ${dupError ? "is-invalid" : ""}`}
-                        value={form.Cftipartno}
+                        value={form.Cfti_partno} // ← FIXED
                         onChange={(e) => {
                           const v = e.target.value.toUpperCase();
-                          handleFieldChange("Cftipartno", v);
+                          handleFieldChange("Cfti_partno", v); // ← FIXED
                           setDupError("");
                           if (v.trim()) checkDuplicate(v);
                         }}
@@ -548,7 +528,7 @@ export default function CostPrice() {
                   <textarea
                     className="form-control form-control-sm"
                     rows={2}
-                    maxLength={52}
+                    maxLength={100}
                     value={form.Description}
                     onChange={(e) =>
                       handleFieldChange("Description", e.target.value)
@@ -556,7 +536,7 @@ export default function CostPrice() {
                     placeholder="Optional part description..."
                   />
                   <small className="text-muted" style={{ fontSize: "0.74rem" }}>
-                    Max 52 characters.
+                    Max 100 characters.
                   </small>
                 </div>
 
@@ -571,10 +551,10 @@ export default function CostPrice() {
                       min="0"
                       step="0.01"
                       className="form-control form-control-sm"
-                      value={form.CostPrice}
+                      value={form.Cost_Price} // ← FIXED
                       onChange={(e) =>
-                        handleFieldChange("CostPrice", e.target.value)
-                      }
+                        handleFieldChange("Cost_Price", e.target.value)
+                      } // ← FIXED
                       required
                       placeholder="0.00"
                       autoFocus={panel === "edit"}
@@ -647,8 +627,8 @@ export default function CostPrice() {
                       loading ||
                       (panel === "add" &&
                         (!!dupError ||
-                          !form.Cftipartno.trim() ||
-                          form.CostPrice === "" ||
+                          !form.Cfti_partno.trim() || // ← FIXED
+                          form.Cost_Price === "" || // ← FIXED
                           !form.Currency))
                     }
                   >
@@ -675,7 +655,6 @@ export default function CostPrice() {
         </div>
       </div>
 
-      {/* ── Confirm Toggle Modal ────────────────────────────────────── */}
       {confirmModal.show && (
         <div className="modal-backdrop-custom">
           <div className="confirm-modal">
@@ -716,4 +695,3 @@ export default function CostPrice() {
     </>
   );
 }
-

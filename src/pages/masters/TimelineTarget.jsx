@@ -45,12 +45,6 @@ export default function TimelineTarget() {
   const [formErrors, setFormErrors] = useState({});
   const [alert, setAlert] = useState({ msg: "", type: "" });
   const [loading, setLoading] = useState(false);
-  const [confirmModal, setConfirmModal] = useState({
-    show: false,
-    sno: null,
-    currentStatus: "",
-    name: "",
-  });
 
   const headers = { Authorization: `Bearer ${token}` };
 
@@ -74,12 +68,10 @@ export default function TimelineTarget() {
     fetchData();
   }, [fetchData]);
 
-  // Fetch available products (not yet assigned)
+  // Fetch available products (not yet assigned) — FIXED: /products not /available-products
   const fetchAvailProducts = useCallback(async () => {
     try {
-      const { data } = await axios.get(`${API}/available-products`, {
-        headers,
-      });
+      const { data } = await axios.get(`${API}/products`, { headers }); // ✅ FIXED
       setAvailProducts(data);
     } catch {}
   }, [token]);
@@ -112,23 +104,22 @@ export default function TimelineTarget() {
 
   const totalPages = Math.ceil(filtered.length / PAGESIZE);
   const paginated = filtered.slice((page - 1) * PAGESIZE, page * PAGESIZE);
-
   const pageNumbers = Array.from(
     { length: totalPages },
     (_, i) => i + 1,
   ).filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2);
 
-  // ✅ FIXED: openAdd clears alert
+  // Open Add — clears alert, fetches available products
   const openAdd = async () => {
     await fetchAvailProducts();
     setForm(emptyForm);
     setDupError("");
     setFormErrors({});
-    setAlert({ msg: "", type: "" }); // ✅
+    setAlert({ msg: "", type: "" });
     setPanel("add");
   };
 
-  // ✅ FIXED: handleRowDblClick clears alert
+  // Open Edit on double-click — clears alert
   const handleRowDblClick = (row) => {
     setEditSno(row.Sno);
     setEditProductLocked(row.Product);
@@ -143,7 +134,7 @@ export default function TimelineTarget() {
     });
     setDupError("");
     setFormErrors({});
-    setAlert({ msg: "", type: "" }); // ✅
+    setAlert({ msg: "", type: "" });
     setPanel("edit");
   };
 
@@ -217,23 +208,6 @@ export default function TimelineTarget() {
     }
   };
 
-  // TOGGLE
-  const handleToggle = async () => {
-    const { sno, currentStatus } = confirmModal;
-    const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
-    setConfirmModal({ show: false, sno: null, currentStatus: "", name: "" });
-    try {
-      await axios.patch(
-        `${API}/toggle/${sno}`,
-        { status: newStatus },
-        { headers },
-      );
-      fetchData();
-    } catch {
-      showAlert("Failed to toggle status.", "danger");
-    }
-  };
-
   // Numeric input handler
   const handleNumericChange = (key, val) => {
     setForm((f) => ({ ...f, [key]: val }));
@@ -241,8 +215,7 @@ export default function TimelineTarget() {
   };
 
   return (
-    <>
-      <DashboardNavbar />
+    <DashboardNavbar>
       <div className="container-fluid px-3 py-3">
         {/* Breadcrumb */}
         <div className="d-flex align-items-center gap-2 mb-3">
@@ -316,7 +289,7 @@ export default function TimelineTarget() {
           <div
             className="master-table-wrapper"
             style={{
-              flex: panel ? "0 0 57%" : "1",
+              flex: panel ? "0 0 57%" : 1,
               transition: "flex 0.3s",
               overflowX: "auto",
             }}
@@ -379,22 +352,15 @@ export default function TimelineTarget() {
                       {canEdit && (
                         <td className="text-center">
                           <button
-                            className={`btn btn-xs status-btn ${
-                              row.status === "Active"
-                                ? "status-active"
-                                : "status-inactive"
-                            }`}
+                            className="btn btn-xs btn-outline-secondary"
+                            style={{ fontSize: "0.75rem" }}
+                            title="Edit"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setConfirmModal({
-                                show: true,
-                                sno: row.Sno,
-                                currentStatus: row.status,
-                                name: row.Product,
-                              });
+                              handleRowDblClick(row);
                             }}
                           >
-                            {row.status}
+                            <i className="bi bi-pencil-fill" />
                           </button>
                         </td>
                       )}
@@ -418,21 +384,13 @@ export default function TimelineTarget() {
                   >
                     <i className="bi bi-chevron-left" />
                   </button>
-                  {pageNumbers.map((p, i, arr) =>
-                    i > 0 && arr[i - 1] !== p - 1 ? (
-                      <>
+                  {pageNumbers.map((p, i, arr) => (
+                    <>
+                      {i > 0 && arr[i - 1] !== p - 1 && (
                         <span key={`e${p}`} className="btn btn-sm disabled">
                           …
                         </span>
-                        <button
-                          key={p}
-                          className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
-                          onClick={() => setPage(p)}
-                        >
-                          {p}
-                        </button>
-                      </>
-                    ) : (
+                      )}
                       <button
                         key={p}
                         className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
@@ -440,8 +398,8 @@ export default function TimelineTarget() {
                       >
                         {p}
                       </button>
-                    ),
-                  )}
+                    </>
+                  ))}
                   <button
                     className="btn btn-sm btn-outline-secondary"
                     disabled={page === totalPages}
@@ -466,9 +424,7 @@ export default function TimelineTarget() {
                   style={{ color: "#800000", fontWeight: 700 }}
                 >
                   <i
-                    className={`bi ${
-                      panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"
-                    } me-2`}
+                    className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}
                   />
                   {panel === "add"
                     ? "Create Timeline Target"
@@ -482,14 +438,25 @@ export default function TimelineTarget() {
                 </button>
               </div>
 
+              {dupError && (
+                <div
+                  className="alert alert-danger py-1 mb-3"
+                  style={{ fontSize: "0.8rem" }}
+                >
+                  <i className="bi bi-exclamation-triangle-fill me-1" />
+                  {dupError}
+                </div>
+              )}
+
               <form
                 onSubmit={panel === "add" ? handleAdd : handleEdit}
                 noValidate
               >
-                {/* Product — dropdown on add, locked in edit */}
+                {/* Product — dropdown on add, locked on edit */}
                 <div className="mb-3">
                   <label className="form-label panel-label">
-                    Product <span className="text-danger">*</span>
+                    Product{" "}
+                    {panel === "add" && <span className="text-danger">*</span>}
                   </label>
                   {panel === "add" ? (
                     <select
@@ -501,8 +468,8 @@ export default function TimelineTarget() {
                       required
                     >
                       <option value="">-- Select Product --</option>
-                      {availProducts.map((p) => (
-                        <option key={p} value={p}>
+                      {availProducts.map((p, i) => (
+                        <option key={i} value={p}>
                           {p}
                         </option>
                       ))}
@@ -518,7 +485,7 @@ export default function TimelineTarget() {
                   )}
                 </div>
 
-                {/* Numeric fields */}
+                {/* All numeric fields */}
                 {NUMERICFIELDS.map(({ key, label }) => (
                   <div className="mb-2" key={key}>
                     <label className="form-label panel-label">
@@ -526,14 +493,12 @@ export default function TimelineTarget() {
                     </label>
                     <input
                       type="number"
-                      min="0"
-                      step="1"
-                      className={`form-control form-control-sm ${
-                        formErrors[key] ? "is-invalid" : ""
-                      }`}
+                      min={0}
+                      step={1}
+                      className={`form-control form-control-sm${formErrors[key] ? " is-invalid" : ""}`}
                       value={form[key]}
                       onChange={(e) => handleNumericChange(key, e.target.value)}
-                      placeholder={`Enter ${label}`}
+                      placeholder={`Enter ${label} target days`}
                       required
                     />
                     {formErrors[key] && (
@@ -552,9 +517,7 @@ export default function TimelineTarget() {
                       <span className="spinner-border spinner-border-sm me-1" />
                     )}
                     <i
-                      className={`bi ${
-                        panel === "add" ? "bi-check-circle" : "bi-pencil-square"
-                      } me-1`}
+                      className={`bi ${panel === "add" ? "bi-check-circle" : "bi-pencil-square"} me-1`}
                     />
                     {panel === "add" ? "Save" : "Update"}
                   </button>
@@ -571,45 +534,6 @@ export default function TimelineTarget() {
           )}
         </div>
       </div>
-
-      {/* Confirm Toggle Modal */}
-      {confirmModal.show && (
-        <div className="modal-backdrop-custom">
-          <div className="confirm-modal">
-            <h6 className="mb-3" style={{ color: "#800000" }}>
-              <i className="bi bi-exclamation-triangle-fill me-2" />
-              Confirmation
-            </h6>
-            <p className="mb-4" style={{ fontSize: "0.88rem" }}>
-              Do you want to make <strong>{confirmModal.name}</strong>{" "}
-              <strong>
-                {confirmModal.currentStatus === "Active"
-                  ? "Inactive"
-                  : "Active"}
-              </strong>
-              ?
-            </p>
-            <div className="d-flex gap-2 justify-content-end">
-              <button className="btn btn-sm btn-success" onClick={handleToggle}>
-                Yes
-              </button>
-              <button
-                className="btn btn-sm btn-danger"
-                onClick={() =>
-                  setConfirmModal({
-                    show: false,
-                    sno: null,
-                    currentStatus: "",
-                    name: "",
-                  })
-                }
-              >
-                No
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    </DashboardNavbar>
   );
 }

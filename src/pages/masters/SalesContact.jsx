@@ -7,7 +7,12 @@ import { getAuth, isLoggedIn } from "../../utils/auth";
 const API = "http://localhost:5001/api/salescontact";
 const PAGESIZE = 50;
 
-const emptyForm = { salescontactname: "", email: "", mobile: "", landline: "" };
+const emptyForm = {
+  salescontactname: "",
+  email: "",
+  mobile: "",
+  landline: "",
+};
 
 export default function SalesContact() {
   const navigate = useNavigate();
@@ -24,12 +29,10 @@ export default function SalesContact() {
   const [editSno, setEditSno] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
   const [alert, setAlert] = useState({ msg: "", type: "" });
-  // ✅ FIXED: added name field
   const [confirmModal, setConfirmModal] = useState({
     show: false,
     sno: null,
     currentStatus: "",
-    name: "",
   });
   const [loading, setLoading] = useState(false);
 
@@ -110,10 +113,10 @@ export default function SalesContact() {
       return;
     }
     setForm({
-      salescontactname: row.salescontactname,
-      email: row.email,
-      mobile: row.mobile,
-      landline: row.landline,
+      salescontactname: row.salescontactname || "",
+      email: row.email || "",
+      mobile: row.mobile || "",
+      landline: row.landline || "",
     });
     setEditSno(row.Sno);
     setFieldErrors({});
@@ -125,8 +128,10 @@ export default function SalesContact() {
     setPanel(null);
     setForm(emptyForm);
     setFieldErrors({});
+    setEditSno(null);
   };
 
+  // FIXED: pass correct query param name to backend (?name= or ?email=)
   const checkField = async (field, value) => {
     if (!value.trim()) return;
     try {
@@ -143,6 +148,14 @@ export default function SalesContact() {
           return e;
         });
     } catch {}
+  };
+
+  const clearErr = (field) => {
+    setFieldErrors((prev) => {
+      const e = { ...prev };
+      delete e[field];
+      return e;
+    });
   };
 
   const handleAdd = async (e) => {
@@ -166,11 +179,16 @@ export default function SalesContact() {
 
   const handleEdit = async (e) => {
     e.preventDefault();
+    if (Object.keys(fieldErrors).length > 0) return;
     setLoading(true);
     try {
       const { data } = await axios.put(
         `${API}/${editSno}`,
-        { mobile: form.mobile, landline: form.landline },
+        {
+          email: form.email,
+          mobile: form.mobile,
+          landline: form.landline,
+        },
         { headers },
       );
       showAlert(data.message, "success");
@@ -186,11 +204,10 @@ export default function SalesContact() {
     }
   };
 
-  // ✅ FIXED: handleToggle resets name: ""
   const handleToggle = async () => {
     const { sno, currentStatus } = confirmModal;
     const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
-    setConfirmModal({ show: false, sno: null, currentStatus: "", name: "" });
+    setConfirmModal({ show: false, sno: null, currentStatus: "" });
     try {
       await axios.patch(
         `${API}/toggle/${sno}`,
@@ -203,9 +220,10 @@ export default function SalesContact() {
     }
   };
 
+  const lockedStyle = { backgroundColor: "#e9ecef" };
+
   return (
-    <>
-      <DashboardNavbar />
+    <DashboardNavbar>
       <div className="container-fluid px-3 py-3">
         {/* Breadcrumb */}
         <div className="d-flex align-items-center gap-2 mb-3">
@@ -223,7 +241,7 @@ export default function SalesContact() {
 
         <h5 className="master-page-title mb-3">
           <i className="bi bi-person-lines-fill me-2" />
-          Sales Contact
+          Sales Contact Master
         </h5>
 
         {alert.msg && (
@@ -236,13 +254,13 @@ export default function SalesContact() {
         <div className="master-toolbar mb-3 d-flex flex-wrap align-items-center gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
-              Search Name / Email / Mobile / Landline / Status
+              Search All Columns
             </label>
             <input
               type="text"
               className="form-control form-control-sm"
-              style={{ width: 260 }}
-              placeholder="Type to search..."
+              style={{ width: 300 }}
+              placeholder="Search Name, Email, Mobile, Landline..."
               value={searchVal}
               onChange={handleLiveSearch}
             />
@@ -278,7 +296,7 @@ export default function SalesContact() {
           <div
             className="master-table-wrapper"
             style={{
-              flex: panel ? "0 0 60%" : "1",
+              flex: panel ? "0 0 55%" : 1,
               transition: "flex 0.3s",
               overflowX: "auto",
             }}
@@ -286,18 +304,22 @@ export default function SalesContact() {
             <table className="table table-bordered table-hover master-table mb-0">
               <thead>
                 <tr>
-                  <th style={{ width: "5%" }}>S.No</th>
+                  <th style={{ width: "4%" }}>S.No</th>
                   <th style={{ width: "22%" }}>Name</th>
-                  <th style={{ width: "28%" }}>Email</th>
-                  <th style={{ width: "15%" }}>Mobile</th>
-                  <th style={{ width: "18%" }}>Landline</th>
-                  <th style={{ width: "12%" }}>Action</th>
+                  <th style={{ width: "24%" }}>Email</th>
+                  <th style={{ width: "14%" }}>Mobile</th>
+                  <th style={{ width: "14%" }}>Landline</th>
+                  <th style={{ width: "10%" }}>Status</th>
+                  {canEdit && <th style={{ width: "12%" }}>Action</th>}
                 </tr>
               </thead>
               <tbody>
                 {paginated.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center text-muted py-4">
+                    <td
+                      colSpan={canEdit ? 7 : 6}
+                      className="text-center text-muted py-4"
+                    >
                       No records found.
                     </td>
                   </tr>
@@ -315,11 +337,18 @@ export default function SalesContact() {
                     >
                       <td>{(page - 1) * PAGESIZE + idx + 1}</td>
                       <td>{row.salescontactname}</td>
-                      <td>{row.email}</td>
-                      <td>{row.mobile}</td>
-                      <td>{row.landline}</td>
-                      <td className="text-center">
-                        {canEdit ? (
+                      <td style={{ fontSize: "0.82rem" }}>{row.email}</td>
+                      <td style={{ fontSize: "0.82rem" }}>{row.mobile}</td>
+                      <td style={{ fontSize: "0.82rem" }}>{row.landline}</td>
+                      <td>
+                        <span
+                          className={`badge ${row.status === "Active" ? "bg-success" : "bg-secondary"}`}
+                        >
+                          {row.status}
+                        </span>
+                      </td>
+                      {canEdit && (
+                        <td className="text-center">
                           <button
                             className={`btn btn-xs status-btn ${row.status === "Active" ? "status-active" : "status-inactive"}`}
                             onClick={() =>
@@ -327,20 +356,13 @@ export default function SalesContact() {
                                 show: true,
                                 sno: row.Sno,
                                 currentStatus: row.status,
-                                name: row.salescontactname,
                               })
                             }
                           >
                             {row.status}
                           </button>
-                        ) : (
-                          <span
-                            className={`badge ${row.status === "Active" ? "bg-success" : "bg-secondary"}`}
-                          >
-                            {row.status}
-                          </span>
-                        )}
-                      </td>
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}
@@ -361,21 +383,13 @@ export default function SalesContact() {
                   >
                     <i className="bi bi-chevron-left" />
                   </button>
-                  {pageNumbers.map((p, i, arr) =>
-                    i > 0 && arr[i - 1] !== p - 1 ? (
-                      <>
+                  {pageNumbers.map((p, i, arr) => (
+                    <>
+                      {i > 0 && arr[i - 1] !== p - 1 && (
                         <span key={`e${p}`} className="btn btn-sm disabled">
                           …
                         </span>
-                        <button
-                          key={p}
-                          className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
-                          onClick={() => setPage(p)}
-                        >
-                          {p}
-                        </button>
-                      </>
-                    ) : (
+                      )}
                       <button
                         key={p}
                         className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
@@ -383,8 +397,8 @@ export default function SalesContact() {
                       >
                         {p}
                       </button>
-                    ),
-                  )}
+                    </>
+                  ))}
                   <button
                     className="btn btn-sm btn-outline-secondary"
                     disabled={page === totalPages}
@@ -401,7 +415,7 @@ export default function SalesContact() {
           {panel && (
             <div
               className="master-side-panel"
-              style={{ flex: "0 0 38%", maxHeight: "82vh", overflowY: "auto" }}
+              style={{ flex: "0 0 43%", maxHeight: "82vh", overflowY: "auto" }}
             >
               <div className="panel-header d-flex justify-content-between align-items-center mb-3">
                 <h6
@@ -427,35 +441,30 @@ export default function SalesContact() {
                 onSubmit={panel === "add" ? handleAdd : handleEdit}
                 noValidate
               >
-                {/* Name */}
-                <div className="mb-3">
+                {/* Name — locked in edit */}
+                <div className="mb-2">
                   <label className="form-label panel-label">
                     Name{" "}
                     {panel === "add" && <span className="text-danger">*</span>}
                   </label>
                   <input
                     type="text"
-                    className={`form-control form-control-sm ${fieldErrors.name ? "is-invalid" : ""}`}
+                    className={`form-control form-control-sm${fieldErrors.name ? " is-invalid" : ""}`}
                     value={form.salescontactname}
                     onChange={(e) => {
                       setForm({ ...form, salescontactname: e.target.value });
-                      setFieldErrors((prev) => {
-                        const n = { ...prev };
-                        delete n.name;
-                        return n;
-                      });
+                      clearErr("name");
                     }}
                     onBlur={() =>
                       panel === "add" &&
+                      form.salescontactname &&
                       checkField("name", form.salescontactname)
                     }
                     readOnly={panel === "edit"}
-                    style={
-                      panel === "edit" ? { backgroundColor: "#e9ecef" } : {}
-                    }
+                    style={panel === "edit" ? lockedStyle : {}}
                     required={panel === "add"}
-                    placeholder="Enter Name"
                     maxLength={45}
+                    placeholder="Enter Full Name"
                   />
                   {fieldErrors.name && (
                     <div className="invalid-feedback">{fieldErrors.name}</div>
@@ -463,33 +472,19 @@ export default function SalesContact() {
                 </div>
 
                 {/* Email */}
-                <div className="mb-3">
-                  <label className="form-label panel-label">
-                    Email{" "}
-                    {panel === "add" && <span className="text-danger">*</span>}
-                  </label>
+                <div className="mb-2">
+                  <label className="form-label panel-label">Email</label>
                   <input
                     type="email"
-                    className={`form-control form-control-sm ${fieldErrors.email ? "is-invalid" : ""}`}
+                    className={`form-control form-control-sm${fieldErrors.email ? " is-invalid" : ""}`}
                     value={form.email}
                     onChange={(e) => {
                       setForm({ ...form, email: e.target.value });
-                      setFieldErrors((prev) => {
-                        const n = { ...prev };
-                        delete n.email;
-                        return n;
-                      });
+                      clearErr("email");
                     }}
-                    onBlur={() =>
-                      panel === "add" && checkField("email", form.email)
-                    }
-                    readOnly={panel === "edit"}
-                    style={
-                      panel === "edit" ? { backgroundColor: "#e9ecef" } : {}
-                    }
-                    required={panel === "add"}
-                    placeholder="Enter Email"
+                    onBlur={() => form.email && checkField("email", form.email)}
                     maxLength={60}
+                    placeholder="abc@company.com"
                   />
                   {fieldErrors.email && (
                     <div className="invalid-feedback">{fieldErrors.email}</div>
@@ -497,57 +492,33 @@ export default function SalesContact() {
                 </div>
 
                 {/* Mobile */}
-                <div className="mb-3">
+                <div className="mb-2">
                   <label className="form-label panel-label">Mobile</label>
                   <input
                     type="text"
-                    className={`form-control form-control-sm ${fieldErrors.mobile ? "is-invalid" : ""}`}
+                    className="form-control form-control-sm"
                     value={form.mobile}
-                    onChange={(e) => {
-                      setForm({ ...form, mobile: e.target.value });
-                      setFieldErrors((prev) => {
-                        const n = { ...prev };
-                        delete n.mobile;
-                        return n;
-                      });
-                    }}
-                    onBlur={() =>
-                      form.mobile && checkField("mobile", form.mobile)
+                    onChange={(e) =>
+                      setForm({ ...form, mobile: e.target.value })
                     }
-                    placeholder="10-digit mobile"
                     maxLength={10}
+                    placeholder="10-digit mobile"
                   />
-                  {fieldErrors.mobile && (
-                    <div className="invalid-feedback">{fieldErrors.mobile}</div>
-                  )}
                 </div>
 
                 {/* Landline */}
-                <div className="mb-4">
+                <div className="mb-3">
                   <label className="form-label panel-label">Landline</label>
                   <input
                     type="text"
-                    className={`form-control form-control-sm ${fieldErrors.landline ? "is-invalid" : ""}`}
+                    className="form-control form-control-sm"
                     value={form.landline}
-                    onChange={(e) => {
-                      setForm({ ...form, landline: e.target.value });
-                      setFieldErrors((prev) => {
-                        const n = { ...prev };
-                        delete n.landline;
-                        return n;
-                      });
-                    }}
-                    onBlur={() =>
-                      form.landline && checkField("landline", form.landline)
+                    onChange={(e) =>
+                      setForm({ ...form, landline: e.target.value })
                     }
-                    placeholder="e.g. 044-12345678"
                     maxLength={15}
+                    placeholder="e.g. 0422-234567"
                   />
-                  {fieldErrors.landline && (
-                    <div className="invalid-feedback">
-                      {fieldErrors.landline}
-                    </div>
-                  )}
                 </div>
 
                 <div className="d-flex gap-2">
@@ -576,46 +547,48 @@ export default function SalesContact() {
             </div>
           )}
         </div>
-      </div>
 
-      {/* ✅ FIXED: Confirm Modal shows name, resets name: "" */}
-      {confirmModal.show && (
-        <div className="modal-backdrop-custom">
-          <div className="confirm-modal">
-            <h6 className="mb-3" style={{ color: "#800000" }}>
-              <i className="bi bi-exclamation-triangle-fill me-2" />
-              Confirmation
-            </h6>
-            <p className="mb-4">
-              Do you want to make <strong>{confirmModal.name}</strong>{" "}
-              <strong>
-                {confirmModal.currentStatus === "Active"
-                  ? "Inactive"
-                  : "Active"}
-              </strong>
-              ?
-            </p>
-            <div className="d-flex gap-2 justify-content-end">
-              <button className="btn btn-sm btn-success" onClick={handleToggle}>
-                Yes
-              </button>
-              <button
-                className="btn btn-sm btn-danger"
-                onClick={() =>
-                  setConfirmModal({
-                    show: false,
-                    sno: null,
-                    currentStatus: "",
-                    name: "",
-                  })
-                }
-              >
-                No
-              </button>
+        {/* Confirm Toggle Modal */}
+        {confirmModal.show && (
+          <div className="modal-backdrop-custom">
+            <div className="confirm-modal">
+              <h6 className="mb-3" style={{ color: "#800000" }}>
+                <i className="bi bi-exclamation-triangle-fill me-2" />
+                Confirmation
+              </h6>
+              <p className="mb-4">
+                Do you want to make the Sales Contact{" "}
+                <strong>
+                  {confirmModal.currentStatus === "Active"
+                    ? "Inactive"
+                    : "Active"}
+                </strong>
+                ?
+              </p>
+              <div className="d-flex gap-2 justify-content-end">
+                <button
+                  className="btn btn-sm btn-success"
+                  onClick={handleToggle}
+                >
+                  Yes
+                </button>
+                <button
+                  className="btn btn-sm btn-danger"
+                  onClick={() =>
+                    setConfirmModal({
+                      show: false,
+                      sno: null,
+                      currentStatus: "",
+                    })
+                  }
+                >
+                  No
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </>
+        )}
+      </div>
+    </DashboardNavbar>
   );
 }

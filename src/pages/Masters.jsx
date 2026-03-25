@@ -4,7 +4,6 @@ import axios from "axios";
 import DashboardNavbar from "../components/DashboardNavbar";
 import { isLoggedIn, getAuth } from "../utils/auth";
 
-// These cards have NO status column → skip count fetch
 const NO_COUNT_KEYS = ["discount", "end-industry", "reason", "timeline-target"];
 
 const subMasters = [
@@ -78,7 +77,7 @@ const subMasters = [
     name: "Customer Type",
     icon: "bi-flag-fill",
     path: "/masters/country-type",
-    key: "country-type",
+    key: "customer-type",
   },
   {
     name: "Status",
@@ -120,9 +119,9 @@ const API_KEY_MAP = {
   country: "country",
   product: "product",
   price: "price",
-  "ge-reference": "ge-reference",
+  "ge-reference": "gereference",
   "spcl-discount": "spcl-discount",
-  "country-type": "country-type",
+  "customer-type": "customer-type", // ← UPDATED (was "country-type": "country-type")
   "status-master": "status-master",
   "cost-price": "cost-price",
   privileged: "privileged",
@@ -209,7 +208,6 @@ export default function Masters() {
                   </div>
                   <div className="submaster-name">{sub.name}</div>
 
-                  {/* Active / Inactive count badges */}
                   {showCount && cnt && (
                     <div
                       className="d-flex gap-2 justify-content-center flex-wrap"
@@ -244,7 +242,6 @@ export default function Masters() {
                     </div>
                   )}
 
-                  {/* Still loading */}
                   {showCount && !cnt && !failed && (
                     <div
                       style={{

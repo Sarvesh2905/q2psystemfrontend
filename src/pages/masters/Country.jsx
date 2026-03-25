@@ -73,11 +73,11 @@ export default function Country() {
         ? allData
         : allData.filter((row) =>
             [
-              row.Country_code, // ✅ FIXED
-              row.Country_name, // ✅ FIXED
+              row.Country_code,
+              row.Country_name,
               row.Region,
               row.Currency,
-              row.Currency_Name, // ✅ FIXED
+              row.Currency_Name,
               row.Conversion_rate != null ? String(row.Conversion_rate) : "",
               row.status,
             ]
@@ -107,18 +107,18 @@ export default function Country() {
   const openEdit = (row) => {
     if (row.status === "Inactive") {
       showAlert(
-        `"${row.Country_name}" is Inactive and cannot be edited.`, // ✅ FIXED
+        `"${row.Country_name}" is Inactive and cannot be edited.`,
         "warning",
       );
       return;
     }
     setForm({
-      Country_code: row.Country_code || "", // ✅ FIXED
-      Country_name: row.Country_name || "", // ✅ FIXED
+      Country_code: row.Country_code || "",
+      Country_name: row.Country_name || "",
       Region: row.Region || "",
       Currency: row.Currency || "",
-      Currency_Name: row.Currency_Name || "", // ✅ FIXED
-      Conversion_rate: row.Conversion_rate ?? "", // ✅ FIXED
+      Currency_Name: row.Currency_Name || "",
+      Conversion_rate: row.Conversion_rate ?? "",
     });
     setEditSno(row.Sno);
     setFieldErrors({});
@@ -182,7 +182,7 @@ export default function Country() {
     try {
       const { data } = await axios.put(
         `${API}/${editSno}`,
-        { Region: form.Region, Conversionrate: form.Conversion_rate }, // ✅ FIXED: key name matches backend
+        { Region: form.Region, Conversion_rate: form.Conversion_rate }, // ← FIXED
         { headers },
       );
       showAlert(data.message, "success");
@@ -321,7 +321,6 @@ export default function Country() {
                       }
                     >
                       <td>{(page - 1) * PAGE_SIZE + idx + 1}</td>
-                      {/* ✅ ALL FIXED to match exact DB column names */}
                       <td>
                         <span className="badge bg-secondary">
                           {row.Country_code}
@@ -358,11 +357,7 @@ export default function Country() {
                           </button>
                         ) : (
                           <span
-                            className={`badge ${
-                              row.status === "Active"
-                                ? "bg-success"
-                                : "bg-secondary"
-                            }`}
+                            className={`badge ${row.status === "Active" ? "bg-success" : "bg-secondary"}`}
                           >
                             {row.status}
                           </span>
@@ -401,11 +396,7 @@ export default function Country() {
                         )}
                         <button
                           key={p}
-                          className={`btn btn-sm ${
-                            page === p
-                              ? "btn-primary-custom"
-                              : "btn-outline-secondary"
-                          }`}
+                          className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
                           onClick={() => setPage(p)}
                         >
                           {p}
@@ -432,9 +423,7 @@ export default function Country() {
                   style={{ color: "#800000", fontWeight: 700 }}
                 >
                   <i
-                    className={`bi ${
-                      panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"
-                    } me-2`}
+                    className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}
                   ></i>
                   {panel === "add" ? "Create Country" : "Modify Country"}
                 </h6>
@@ -459,9 +448,7 @@ export default function Country() {
                   </label>
                   <input
                     type="text"
-                    className={`form-control form-control-sm ${
-                      fieldErrors.Country_code ? "is-invalid" : ""
-                    }`}
+                    className={`form-control form-control-sm ${fieldErrors.Country_code ? "is-invalid" : ""}`}
                     value={form.Country_code}
                     onChange={(e) => {
                       const v = e.target.value
@@ -599,11 +586,7 @@ export default function Country() {
                       <span className="spinner-border spinner-border-sm me-1"></span>
                     ) : (
                       <i
-                        className={`bi ${
-                          panel === "add"
-                            ? "bi-check-circle"
-                            : "bi-pencil-square"
-                        } me-1`}
+                        className={`bi ${panel === "add" ? "bi-check-circle" : "bi-pencil-square"} me-1`}
                       ></i>
                     )}
                     {panel === "add" ? "Save" : "Update"}
@@ -645,11 +628,7 @@ export default function Country() {
               <button
                 className="btn btn-sm btn-danger"
                 onClick={() =>
-                  setConfirmModal({
-                    show: false,
-                    sno: null,
-                    currentStatus: "",
-                  })
+                  setConfirmModal({ show: false, sno: null, currentStatus: "" })
                 }
               >
                 No

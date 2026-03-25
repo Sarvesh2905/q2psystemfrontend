@@ -4,12 +4,15 @@ import axios from "axios";
 import DashboardNavbar from "../../components/DashboardNavbar";
 import { getAuth, isLoggedIn } from "../../utils/auth";
 
-const API = "http://localhost:5001/api/deptusers";
-const PAGESIZE = 50;
+const API = "http://localhost:5001/api/dept-users";
+const PAGE_SIZE = 50;
 
-const emptyForm = { deptuserid: "", Username: "", Email: "" };
+const emptyForm = {
+  Username: "",
+  Email: "",
+};
 
-export default function UsersDept() {
+export default function UsersDebt() {
   const navigate = useNavigate();
   const { token, user } = getAuth();
   const role = user?.role;
@@ -21,15 +24,13 @@ export default function UsersDept() {
   const [searchVal, setSearchVal] = useState("");
   const [panel, setPanel] = useState(null);
   const [form, setForm] = useState(emptyForm);
-  const [editOrigId, setEditOrigId] = useState(null);
-  const [idError, setIdError] = useState("");
+  const [editSno, setEditSno] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({});
   const [alert, setAlert] = useState({ msg: "", type: "" });
-  // ✅ FIXED: added name: "" to confirmModal state
   const [confirmModal, setConfirmModal] = useState({
     show: false,
     sno: null,
     currentStatus: "",
-    name: "",
   });
   const [loading, setLoading] = useState(false);
 
@@ -67,8 +68,8 @@ export default function UsersDept() {
       !q
         ? allData
         : allData.filter((row) =>
-            [row.deptuserid, row.Username, row.Email, row.status]
-              .map((v) => (v ?? "").toLowerCase())
+            [row.Username, row.Email, row.status]
+              .map((v) => (v || "").toLowerCase())
               .some((v) => v.includes(q)),
           ),
     );
@@ -81,35 +82,27 @@ export default function UsersDept() {
     setPage(1);
   };
 
-  const totalPages = Math.ceil(filtered.length / PAGESIZE);
-  const paginated = filtered.slice((page - 1) * PAGESIZE, page * PAGESIZE);
-  const pageNumbers = Array.from(
-    { length: totalPages },
-    (_, i) => i + 1,
-  ).filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2);
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const openAdd = () => {
     setForm(emptyForm);
-    setIdError("");
+    setFieldErrors({});
     setAlert({ msg: "", type: "" });
     setPanel("add");
   };
 
   const openEdit = (row) => {
     if (row.status === "Inactive") {
-      showAlert(
-        `${row.deptuserid} is Inactive and cannot be edited.`,
-        "warning",
-      );
+      showAlert(`"${row.Username}" is Inactive and cannot be edited.`, "warning");
       return;
     }
     setForm({
-      deptuserid: row.deptuserid,
-      Username: row.Username,
-      Email: row.Email,
+      Username: row.Username || "",
+      Email: row.Email || "",
     });
-    setEditOrigId(row.deptuserid);
-    setIdError("");
+    setEditSno(row.Sno);
+    setFieldErrors({});
     setAlert({ msg: "", type: "" });
     setPanel("edit");
   };
@@ -117,26 +110,38 @@ export default function UsersDept() {
   const closePanel = () => {
     setPanel(null);
     setForm(emptyForm);
-    setIdError("");
-    setEditOrigId(null);
+    setFieldErrors({});
   };
 
-  const checkDeptUserId = async () => {
-    if (!form.deptuserid) return;
+  // Duplicate check
+  const checkField = async (params) => {
     try {
-      const { data } = await axios.get(
-        `${API}/check-deptuserid?deptuserid=${encodeURIComponent(form.deptuserid)}`,
-        { headers },
-      );
-      setIdError(data.exists ? data.message : "");
-    } catch {
-      setIdError("");
-    }
+      const query = new URLSearchParams(params).toString();
+      const { data } = await axios.get(`${API}/check?${query}`, { headers });
+      if (data.exists)
+        setFieldErrors((prev) => ({ ...prev, [data.field]: data.message }));
+      else {
+        const key = Object.keys(params)[0];
+        setFieldErrors((prev) => {
+          const e = { ...prev };
+          delete e[key];
+          return e;
+        });
+      }
+    } catch {}
   };
 
+  const clearErr = (field) =>
+    setFieldErrors((prev) => {
+      const e = { ...prev };
+      delete e[field];
+      return e;
+    });
+
+  // ADD
   const handleAdd = async (e) => {
     e.preventDefault();
-    if (idError) return;
+    if (Object.keys(fieldErrors).length > 0) return;
     setLoading(true);
     try {
       const { data } = await axios.post(API, form, { headers });
@@ -144,50 +149,47 @@ export default function UsersDept() {
       closePanel();
       fetchData();
     } catch (err) {
-      showAlert(err.response?.data?.message || "Error adding user.", "danger");
+      showAlert(err.response?.data?.message || "Error adding record.", "danger");
     } finally {
       setLoading(false);
     }
   };
 
+  // EDIT (Email only — Username locked)
   const handleEdit = async (e) => {
     e.preventDefault();
+    if (Object.keys(fieldErrors).length > 0) return;
     setLoading(true);
     try {
       const { data } = await axios.put(
-        `${API}/${encodeURIComponent(editOrigId)}`,
-        { Username: form.Username, Email: form.Email },
+        `${API}/${editSno}`,
+        { Email: form.Email },
         { headers },
       );
       showAlert(data.message, "success");
       closePanel();
       fetchData();
     } catch (err) {
-      showAlert(
-        err.response?.data?.message || "Error updating user.",
-        "danger",
-      );
+      showAlert(err.response?.data?.message || "Error updating record.", "danger");
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ FIXED: handleToggle resets name: ""
+  // TOGGLE
   const handleToggle = async () => {
     const { sno, currentStatus } = confirmModal;
     const newStatus = currentStatus === "Active" ? "Inactive" : "Active";
-    setConfirmModal({ show: false, sno: null, currentStatus: "", name: "" });
+    setConfirmModal({ show: false, sno: null, currentStatus: "" });
     try {
-      await axios.patch(
-        `${API}/toggle/${sno}`,
-        { status: newStatus },
-        { headers },
-      );
+      await axios.patch(`${API}/toggle/${sno}`, { status: newStatus }, { headers });
       fetchData();
     } catch {
       showAlert("Failed to toggle status.", "danger");
     }
   };
+
+  const lockedStyle = { backgroundColor: "#e9ecef" };
 
   return (
     <>
@@ -195,12 +197,8 @@ export default function UsersDept() {
       <div className="container-fluid px-3 py-3">
         {/* Breadcrumb */}
         <div className="d-flex align-items-center gap-2 mb-3">
-          <button
-            className="btn btn-sm back-btn"
-            onClick={() => navigate("/masters")}
-          >
-            <i className="bi bi-arrow-left-circle-fill me-1" />
-            Back
+          <button className="btn btn-sm back-btn" onClick={() => navigate("/masters")}>
+            <i className="bi bi-arrow-left-circle-fill me-1"></i>Back
           </button>
           <span className="text-muted" style={{ fontSize: "0.88rem" }}>
             Masters &rsaquo; <strong>Application Engineers</strong>
@@ -208,8 +206,7 @@ export default function UsersDept() {
         </div>
 
         <h5 className="master-page-title mb-3">
-          <i className="bi bi-people-fill me-2" />
-          Application Engineers Master
+          <i className="bi bi-person-badge-fill me-2"></i>Application Engineers Master
         </h5>
 
         {alert.msg && (
@@ -222,13 +219,13 @@ export default function UsersDept() {
         <div className="master-toolbar mb-3 d-flex flex-wrap align-items-center gap-2">
           <div>
             <label className="form-label mb-1" style={{ fontSize: "0.8rem" }}>
-              Search ID / Name / Email / Status
+              Search (All Columns)
             </label>
             <input
               type="text"
               className="form-control form-control-sm"
-              style={{ width: 280 }}
-              placeholder="Type to search..."
+              style={{ width: "280px" }}
+              placeholder="Search Name, Email..."
               value={searchVal}
               onChange={handleLiveSearch}
             />
@@ -238,21 +235,16 @@ export default function UsersDept() {
               className="btn btn-sm btn-outline-secondary align-self-end"
               onClick={handleClear}
             >
-              <i className="bi bi-x-circle me-1" />
-              Clear
+              <i className="bi bi-x-circle me-1"></i>Clear
             </button>
           )}
           <div className="ms-auto d-flex align-items-center gap-2">
             <span className="text-muted" style={{ fontSize: "0.82rem" }}>
-              Records <strong>{filtered.length}</strong>
+              Records: <strong>{filtered.length}</strong>
             </span>
             {canEdit && (
-              <button
-                className="btn btn-sm btn-primary-custom"
-                onClick={openAdd}
-              >
-                <i className="bi bi-plus-circle-fill me-1" />
-                Add
+              <button className="btn btn-sm btn-primary-custom" onClick={openAdd}>
+                <i className="bi bi-plus-circle-fill me-1"></i>Add
               </button>
             )}
           </div>
@@ -260,11 +252,10 @@ export default function UsersDept() {
 
         {/* Table + Panel */}
         <div className="d-flex gap-3" style={{ minHeight: "60vh" }}>
-          {/* Table */}
           <div
             className="master-table-wrapper"
             style={{
-              flex: panel ? "0 0 60%" : "1",
+              flex: panel ? "0 0 58%" : "1",
               transition: "flex 0.3s",
               overflowX: "auto",
             }}
@@ -273,20 +264,15 @@ export default function UsersDept() {
               <thead>
                 <tr>
                   <th style={{ width: "5%" }}>S.No</th>
-                  <th style={{ width: "20%" }}>Application Engineer ID</th>
-                  <th style={{ width: "30%" }}>Application Engineer Name</th>
-                  <th style={{ width: "30%" }}>Email</th>
-                  <th style={{ width: "10%" }}>Status</th>
-                  {canEdit && <th style={{ width: "5%" }}>Action</th>}
+                  <th style={{ width: "25%" }}>Name</th>
+                  <th style={{ width: "40%" }}>Email</th>
+                  <th style={{ width: "15%" }}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {paginated.length === 0 ? (
                   <tr>
-                    <td
-                      colSpan={canEdit ? 6 : 5}
-                      className="text-center text-muted py-4"
-                    >
+                    <td colSpan={4} className="text-center text-muted py-4">
                       No records found.
                     </td>
                   </tr>
@@ -297,53 +283,36 @@ export default function UsersDept() {
                       onDoubleClick={() => canEdit && openEdit(row)}
                       style={{ cursor: canEdit ? "pointer" : "default" }}
                       className={
-                        panel === "edit" && editOrigId === row.deptuserid
-                          ? "table-active"
-                          : ""
+                        panel === "edit" && editSno === row.Sno ? "table-active" : ""
                       }
                     >
-                      <td>{(page - 1) * PAGESIZE + idx + 1}</td>
-                      <td>
-                        <code
-                          style={{
-                            fontSize: "0.82rem",
-                            backgroundColor: "#f8f0f0",
-                            color: "#800000",
-                            padding: "2px 6px",
-                            borderRadius: "4px",
-                          }}
-                        >
-                          {row.deptuserid}
-                        </code>
-                      </td>
+                      <td>{(page - 1) * PAGE_SIZE + idx + 1}</td>
                       <td>{row.Username}</td>
-                      <td style={{ fontSize: "0.83rem" }}>{row.Email}</td>
-                      <td>
-                        <span
-                          className={`badge ${row.status === "Active" ? "bg-success" : "bg-secondary"}`}
-                        >
-                          {row.status}
-                        </span>
-                      </td>
-                      {canEdit && (
-                        <td className="text-center">
+                      <td style={{ fontSize: "0.82rem" }}>{row.Email || "—"}</td>
+                      <td className="text-center">
+                        {canEdit ? (
                           <button
-                            className={`btn btn-xs status-btn ${row.status === "Active" ? "status-active" : "status-inactive"}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // ✅ FIXED: passes name: row.deptuserid
+                            className={`btn btn-xs status-btn ${
+                              row.status === "Active" ? "status-active" : "status-inactive"
+                            }`}
+                            onClick={() =>
                               setConfirmModal({
                                 show: true,
                                 sno: row.Sno,
                                 currentStatus: row.status,
-                                name: row.deptuserid,
-                              });
-                            }}
+                              })
+                            }
                           >
                             {row.status}
                           </button>
-                        </td>
-                      )}
+                        ) : (
+                          <span
+                            className={`badge ${row.status === "Active" ? "bg-success" : "bg-secondary"}`}
+                          >
+                            {row.status}
+                          </span>
+                        )}
+                      </td>
                     </tr>
                   ))
                 )}
@@ -362,14 +331,17 @@ export default function UsersDept() {
                     disabled={page === 1}
                     onClick={() => setPage((p) => p - 1)}
                   >
-                    <i className="bi bi-chevron-left" />
+                    <i className="bi bi-chevron-left"></i>
                   </button>
-                  {pageNumbers.map((p, i, arr) =>
-                    i > 0 && arr[i - 1] !== p - 1 ? (
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(
+                      (p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2,
+                    )
+                    .map((p, i, arr) => (
                       <>
-                        <span key={`e${p}`} className="btn btn-sm disabled">
-                          …
-                        </span>
+                        {i > 0 && arr[i - 1] !== p - 1 && (
+                          <span key={`e${p}`} className="btn btn-sm disabled">…</span>
+                        )}
                         <button
                           key={p}
                           className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
@@ -378,22 +350,13 @@ export default function UsersDept() {
                           {p}
                         </button>
                       </>
-                    ) : (
-                      <button
-                        key={p}
-                        className={`btn btn-sm ${page === p ? "btn-primary-custom" : "btn-outline-secondary"}`}
-                        onClick={() => setPage(p)}
-                      >
-                        {p}
-                      </button>
-                    ),
-                  )}
+                    ))}
                   <button
                     className="btn btn-sm btn-outline-secondary"
                     disabled={page === totalPages}
                     onClick={() => setPage((p) => p + 1)}
                   >
-                    <i className="bi bi-chevron-right" />
+                    <i className="bi bi-chevron-right"></i>
                   </button>
                 </div>
               </div>
@@ -404,133 +367,88 @@ export default function UsersDept() {
           {panel && (
             <div
               className="master-side-panel"
-              style={{ flex: "0 0 38%", maxHeight: "82vh", overflowY: "auto" }}
+              style={{ flex: "0 0 40%", maxHeight: "82vh", overflowY: "auto" }}
             >
               <div className="panel-header d-flex justify-content-between align-items-center mb-3">
-                <h6
-                  className="mb-0"
-                  style={{ color: "#800000", fontWeight: 700 }}
-                >
+                <h6 className="mb-0" style={{ color: "#800000", fontWeight: 700 }}>
                   <i
                     className={`bi ${panel === "add" ? "bi-plus-circle-fill" : "bi-pencil-fill"} me-2`}
-                  />
-                  {panel === "add"
-                    ? "Create Application Engineer"
-                    : "Modify Application Engineer"}
+                  ></i>
+                  {panel === "add" ? "Add Engineer" : "Modify Engineer"}
                 </h6>
-                <button
-                  className="btn btn-sm btn-outline-secondary"
-                  onClick={closePanel}
-                >
-                  <i className="bi bi-x-lg" />
+                <button className="btn btn-sm btn-outline-secondary" onClick={closePanel}>
+                  <i className="bi bi-x-lg"></i>
                 </button>
               </div>
 
-              {idError && (
-                <div
-                  className="alert alert-danger py-1 mb-3"
-                  style={{ fontSize: "0.8rem" }}
-                >
-                  <i className="bi bi-exclamation-triangle-fill me-1" />
-                  {idError}
-                </div>
-              )}
-
-              <form
-                onSubmit={panel === "add" ? handleAdd : handleEdit}
-                noValidate
-              >
-                {/* Application Engineer ID */}
-                <div className="mb-3">
+              <form onSubmit={panel === "add" ? handleAdd : handleEdit} noValidate>
+                {/* Name */}
+                <div className="mb-2">
                   <label className="form-label panel-label">
-                    Application Engineer ID{" "}
-                    {panel === "add" && <span className="text-danger">*</span>}
-                  </label>
-                  {panel === "add" ? (
-                    <input
-                      type="text"
-                      className={`form-control form-control-sm ${idError ? "is-invalid" : ""}`}
-                      value={form.deptuserid}
-                      onChange={(e) => {
-                        setForm({ ...form, deptuserid: e.target.value });
-                        setIdError("");
-                      }}
-                      onBlur={checkDeptUserId}
-                      required
-                      placeholder="Enter ID"
-                      autoFocus
-                    />
-                  ) : (
-                    <input
-                      type="text"
-                      className="form-control form-control-sm"
-                      value={form.deptuserid}
-                      readOnly
-                      style={{
-                        backgroundColor: "#e9ecef",
-                        fontFamily: "monospace",
-                        fontWeight: 600,
-                      }}
-                    />
-                  )}
-                  {idError && <div className="invalid-feedback">{idError}</div>}
-                </div>
-
-                {/* Application Engineer Name */}
-                <div className="mb-3">
-                  <label className="form-label panel-label">
-                    Application Engineer Name{" "}
-                    <span className="text-danger">*</span>
+                    Name <span className="text-danger">*</span>
                   </label>
                   <input
                     type="text"
-                    className="form-control form-control-sm"
+                    className={`form-control form-control-sm ${fieldErrors.name ? "is-invalid" : ""}`}
                     value={form.Username}
-                    onChange={(e) =>
-                      setForm({ ...form, Username: e.target.value })
+                    onChange={(e) => {
+                      setForm({ ...form, Username: e.target.value });
+                      clearErr("name");
+                    }}
+                    onBlur={() =>
+                      panel === "add" &&
+                      form.Username &&
+                      checkField({ name: form.Username })
                     }
-                    required
-                    placeholder="Enter Name"
-                    maxLength={100}
+                    readOnly={panel === "edit"}
+                    style={panel === "edit" ? lockedStyle : {}}
+                    required={panel === "add"}
+                    maxLength={60}
+                    placeholder="Enter Full Name"
                   />
+                  {fieldErrors.name && (
+                    <div className="invalid-feedback">{fieldErrors.name}</div>
+                  )}
                 </div>
 
                 {/* Email */}
-                <div className="mb-4">
+                <div className="mb-3">
                   <label className="form-label panel-label">
                     Email <span className="text-danger">*</span>
                   </label>
                   <input
                     type="email"
-                    className="form-control form-control-sm"
+                    className={`form-control form-control-sm ${fieldErrors.email ? "is-invalid" : ""}`}
                     value={form.Email}
-                    onChange={(e) =>
-                      setForm({ ...form, Email: e.target.value })
+                    onChange={(e) => {
+                      setForm({ ...form, Email: e.target.value });
+                      clearErr("email");
+                    }}
+                    onBlur={() =>
+                      form.Email && checkField({ email: form.Email })
                     }
                     required
-                    placeholder="Enter Email"
-                    maxLength={75}
+                    maxLength={80}
+                    placeholder="engineer@company.com"
                   />
+                  {fieldErrors.email && (
+                    <div className="invalid-feedback">{fieldErrors.email}</div>
+                  )}
                 </div>
 
                 <div className="d-flex gap-2">
                   <button
                     type="submit"
                     className="btn btn-sm btn-primary-custom flex-fill"
-                    disabled={
-                      loading ||
-                      !!idError ||
-                      !form.deptuserid.trim() ||
-                      !form.Username.trim() ||
-                      !form.Email.trim()
-                    }
+                    disabled={loading || Object.keys(fieldErrors).length > 0}
                   >
-                    {loading && (
-                      <span className="spinner-border spinner-border-sm me-1" />
+                    {loading ? (
+                      <span className="spinner-border spinner-border-sm me-1"></span>
+                    ) : (
+                      <i
+                        className={`bi ${panel === "add" ? "bi-check-circle" : "bi-pencil-square"} me-1`}
+                      ></i>
                     )}
-                    <i
-                      className={`bi ${panel === "add" ? "bi-check-circle" : "bi-pencil-square"} me-1`}
-                    />
                     {panel === "add" ? "Save" : "Update"}
                   </button>
                   <button
@@ -547,20 +465,18 @@ export default function UsersDept() {
         </div>
       </div>
 
-      {/* ✅ FIXED: Confirm Modal shows name, resets name: "" */}
+      {/* Confirm Toggle Modal */}
       {confirmModal.show && (
         <div className="modal-backdrop-custom">
           <div className="confirm-modal">
             <h6 className="mb-3" style={{ color: "#800000" }}>
-              <i className="bi bi-exclamation-triangle-fill me-2" />
+              <i className="bi bi-exclamation-triangle-fill me-2"></i>
               Confirmation
             </h6>
-            <p className="mb-4" style={{ fontSize: "0.88rem" }}>
-              Do you want to make <code>{confirmModal.name}</code>{" "}
+            <p className="mb-4">
+              Do you want to make the Engineer{" "}
               <strong>
-                {confirmModal.currentStatus === "Active"
-                  ? "Inactive"
-                  : "Active"}
+                {confirmModal.currentStatus === "Active" ? "Inactive" : "Active"}
               </strong>
               ?
             </p>
@@ -571,12 +487,7 @@ export default function UsersDept() {
               <button
                 className="btn btn-sm btn-danger"
                 onClick={() =>
-                  setConfirmModal({
-                    show: false,
-                    sno: null,
-                    currentStatus: "",
-                    name: "",
-                  })
+                  setConfirmModal({ show: false, sno: null, currentStatus: "" })
                 }
               >
                 No
